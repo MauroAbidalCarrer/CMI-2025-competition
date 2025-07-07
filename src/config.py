@@ -1,0 +1,1 @@
+COMPETITION_HANDLE = "cmi-detect-behavior-with-sensor-data"
