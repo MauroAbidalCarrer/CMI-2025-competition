@@ -10,7 +10,7 @@ dependencies:
   - pytorch==2.5.1
   - python-kaleido==0.2.1
   - torchvision==0.20.1
-  - plotly==5.19.0
+  - plotly==6.2.0
   - pandas==2.2.2
   - matplotlib==3.10.3
   - ipykernel==6.29.5
