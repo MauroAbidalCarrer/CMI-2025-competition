@@ -1,3 +1,4 @@
+notebooks/preprocessed_dataset/*
 *.pth
 
 # Byte-compiled / optimized / DLL files
