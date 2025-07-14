@@ -23,7 +23,6 @@ META_DATA_COLUMNS = [
     'phase',
     'gesture',
 ]
-
 DATASET_DF_DTYPES = {
     "acc_x": "float32", "acc_y": "float32", "acc_z": "float32",
     "thm_1":"float32", "thm_2":"float32", "thm_3":"float32", "thm_4":"float32", "thm_5":"float32",
@@ -35,3 +34,5 @@ PREPROCESSED_DATASET_HANDLE = "mauroabidalcarrer/prepocessed-cmi-2025"
 # The quantile of the sequences len used to pad/truncate during preprocessing
 SEQUENCE_NORMED_LEN_QUANTILE = 0.95
 # SAMPLING_FREQUENCY = 10 #Hz
+N_FOLDS = 5
+VALIDATION_FRACTION = 0.2
