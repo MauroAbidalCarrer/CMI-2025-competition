@@ -19,6 +19,7 @@ dependencies:
   - nbformat==5.10.4
   - timm=1.0.15
   - numpy=2.3.0
+  - polars==1.31.0
   - pip
   - pip:
     # install kagglehub through pip to get the lateset version.
