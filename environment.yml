@@ -22,6 +22,8 @@ dependencies:
   - polars==1.31.0
   - scikit-learn==1.6.1
   - scipy==1.15.3
+  - grpcio==1.71.0
+  - protobuf==5.29.3
   - pip
   - pip:
     # install kagglehub through pip to get the lateset version.
