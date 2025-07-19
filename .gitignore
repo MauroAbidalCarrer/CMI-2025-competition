@@ -1,3 +1,5 @@
+submission.parquet
+todo.md
 *.zip
 notebooks/preprocessed_dataset/*
 *.pth
