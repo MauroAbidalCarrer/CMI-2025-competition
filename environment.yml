@@ -24,8 +24,10 @@ dependencies:
   - scipy==1.15.3
   - grpcio==1.67.1
   - protobuf==5.28.3
+  
   - pip
   - pip:
     # install kagglehub through pip to get the lateset version.
+    # - timm==1.0.19
     - kagglehub==0.3.12
     - -e .
