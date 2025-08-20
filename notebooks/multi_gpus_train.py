@@ -172,7 +172,7 @@ PATIENCE = 8
 # Optimizer
 WEIGHT_DECAY = 3e-3
 # Scheduler
-TRAINING_EPOCHS = 5 # Including warmup epochs
+TRAINING_EPOCHS = 35 # Including warmup epochs
 WARMUP_EPOCHS = 3
 WARMUP_LR_INIT = 1.822126131809773e-05
 MAX_TO_MIN_LR_DIV_FACTOR = 100
@@ -220,6 +220,7 @@ warnings.filterwarnings(
     category=pd.errors.PerformanceWarning,
 )
 warnings.filterwarnings("ignore", message=".*sm_120.*")
+warnings.filterwarnings("ignore", message="The distribution is specified*")
 
 # %% [markdown]
 # ### device setup
@@ -544,6 +545,7 @@ def create_preprocessed_dataset():
 # ### Meta data loading
 
 # %%
+# if __name__ == "__main__":
 meta_data_path = join(
     "preprocessed_dataset",
     "full_dataset_meta_data.json"
@@ -551,7 +553,9 @@ meta_data_path = join(
 with open(meta_data_path, "r") as fp:
     meta_data = json.load(fp)
 seq_meta_data = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
-demographics = pd.read_csv(kagglehub.competition_download(COMPETITION_HANDLE, path="train_demographics.csv"))
+
+demographics_path = "preprocessed_dataset/train_demographics.csv" #join(kagglehub.competition_download(COMPETITION_HANDLE, "train_demographics.csv"))
+pd.read_csv(demographics_path)
 # Convert target names into a ndarray to index it batchwise.
 def get_sensor_indices(sensor_prefix: str) -> list[int]:
     is_sensor_feat = methodcaller("startswith", sensor_prefix)
@@ -1237,7 +1241,7 @@ def train_on_all_folds(
                 gpu_idx,
             )
         )
-        print(f"Starting process for fold {fold_idx} on GPU {gpu_idx}")
+        # print(f"Starting process for fold {fold_idx} on GPU {gpu_idx}")
         p.start()
         active[gpu_idx] = p
         processes.append(p)
@@ -1251,56 +1255,56 @@ def train_on_all_folds(
     
     epoch_metrics = load_metrics("epoch_metrics_fold_{}.parquet")
     seq_metrics = load_metrics("seq_metrics_fold_{}.parquet")
-    print(f"done in {end_time - start_time:.2f}s.")
-    print("all epochs metrics:")
-    print(epoch_metrics)
-    print("mean f1 score:")
     mean_val_score = (
         epoch_metrics
         .groupby(level=0)
-        .agg({"final_metric": "mean"})
+        .agg({"final_metric": "max"})
+        .mean()
     )
-    print(mean_val_score)
+    print(f"done in {end_time - start_time:.2f}s, mean score:", mean_val_score)
+    print("all epochs metrics:")
+    print(epoch_metrics)
+    print("")
     return mean_val_score, epoch_metrics, seq_metrics
 
 # %%
-if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
-    mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
-        lr_scheduler_kw={
-            'warmup_epochs': 14,
-            'cycle_mult': 1.0,
-            'max_lr': 0.00792127195137508,
-            'init_cycle_epochs': 4,
-            'lr_cycle_factor': 0.6,
-            'max_to_min_div_factor': 250,
-        },
-        optimizer_kw={
-            'weight_decay': 0.0009610813976803525, 
-            'beta_0': 0.89889010289165792,
-            'beta_1': 0.99722853486503933,
-        },
-        training_kw={
-            'orient_loss_weight': 0.30000000000000004,
-            'demos_loss_weight': 0.30000000000000004,
-        },
-    )
-    # seq_meta_data_metrics.to_parquet("seq_meta_data_metrics.parquet")
-    user_input = input("Upload model ensemble?").lower()
-    if user_input == "yes":
-        kagglehub.model_upload(
-            handle=join(
-                kagglehub.whoami()["username"],
-                MODEL_NAME,
-                "pyTorch",
-                MODEL_VARIATION,
-            ),
-            local_model_dir="models",
-            version_notes=input("Please provide model version notes:")
-        )
-    elif user_input == "no":
-        print("Model has not been uploaded to kaggle.")
-    else:
-        print("User input was not understood, model has not been uploaded to kaggle.")
+# if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
+#     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
+#         lr_scheduler_kw={
+#             'warmup_epochs': 14,
+#             'cycle_mult': 1.0,
+#             'max_lr': 0.00792127195137508,
+#             'init_cycle_epochs': 4,
+#             'lr_cycle_factor': 0.6,
+#             'max_to_min_div_factor': 250,
+#         },
+#         optimizer_kw={
+#             'weight_decay': 0.0009610813976803525, 
+#             'beta_0': 0.89889010289165792,
+#             'beta_1': 0.99722853486503933,
+#         },
+#         training_kw={
+#             'orient_loss_weight': 0.30000000000000004,
+#             'demos_loss_weight': 0.30000000000000004,
+#         },
+#     )
+#     # seq_meta_data_metrics.to_parquet("seq_meta_data_metrics.parquet")
+#     user_input = input("Upload model ensemble?").lower()
+#     if user_input == "yes":
+#         kagglehub.model_upload(
+#             handle=join(
+#                 kagglehub.whoami()["username"],
+#                 MODEL_NAME,
+#                 "pyTorch",
+#                 MODEL_VARIATION,
+#             ),
+#             local_model_dir="models",
+#             version_notes=input("Please provide model version notes:")
+#         )
+#     elif user_input == "no":
+#         print("Model has not been uploaded to kaggle.")
+#     else:
+#         print("User input was not understood, model has not been uploaded to kaggle.")
 
 # %% [markdown]
 # ## Hyperparameter tuning
@@ -1333,9 +1337,8 @@ class FoldPruner(BasePruner):
         return current_val < (ref - self.tolerance)
 
 # %%
-def objective(full_dataset:Dataset, trial: optuna.trial.Trial) -> float:
+def objective(trial: optuna.trial.Trial) -> float:
     return train_on_all_folds(
-        full_dataset,
         lr_scheduler_kw={
             "warmup_epochs": trial.suggest_int("warmup_epochs", 12, 15),
             "cycle_mult": trial.suggest_float("cycle_mult", 0.9, 1.6, step=0.1),
@@ -1357,25 +1360,24 @@ def objective(full_dataset:Dataset, trial: optuna.trial.Trial) -> float:
     )[0]
 
 # %%
-# study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
-# full_dataset = CMIDataset()
-# study.optimize(partial(objective, full_dataset), n_trials=100, timeout=60 * 60 )
+if __name__ == "__main__":
+    study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
+    study.optimize(objective, n_trials=100, timeout=60 * 60 )
 
-# pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
-# complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
+    pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
+    complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 
-# print("Study statistics: ")
-# print("  Number of finished trials: ", len(study.trials))
-# print("  Number of pruned trials: ", len(pruned_trials))
-# print("  Number of complete trials: ", len(complete_trials))
-# print("Best trial:")
-# current_trial = study.best_trial
+    print("Study statistics: ")
+    print("  Number of finished trials: ", len(study.trials))
+    print("  Number of pruned trials: ", len(pruned_trials))
+    print("  Number of complete trials: ", len(complete_trials))
+    print("Best trial:")
+    current_trial = study.best_trial
 
-# print("  Value: ", current_trial.value)
-
-# print("  Params: ")
-# for key, value in current_trial.params.items():
-#     print("    {}: {}".format(key, value))
+    print("  Value: ", current_trial.value)
+    print("  Params: ")
+    for key, value in current_trial.params.items():
+        print("    {}: {}".format(key, value))
 
 # %% [markdown]
 # ## Submission
@@ -1453,8 +1455,6 @@ def predict(sequence: pl.DataFrame, _: pl.DataFrame) -> str:
         .float()
         .cuda()
     )
-    print(x_tensor.shape)
-    print(x_tensor.device)
 
     all_outputs = []
     with torch.no_grad():
@@ -1464,8 +1464,10 @@ def predict(sequence: pl.DataFrame, _: pl.DataFrame) -> str:
 
     avg_outputs = torch.mean(torch.stack(all_outputs), dim=0)
     pred_idx = torch.argmax(avg_outputs, dim=1).item()
+    prediction = str(TARGET_NAMES[pred_idx])
+    print(prediction)
 
-    return str(TARGET_NAMES[pred_idx])
+    return prediction
 
 # %% [markdown]
 # ### Run inference server
