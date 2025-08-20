@@ -17,6 +17,7 @@ import math
 import shutil
 import random
 import warnings
+from time import time
 from os.path import join
 from functools import partial
 from tqdm.notebook import tqdm
@@ -171,7 +172,7 @@ PATIENCE = 8
 # Optimizer
 WEIGHT_DECAY = 3e-3
 # Scheduler
-TRAINING_EPOCHS = 35 # Including warmup epochs
+TRAINING_EPOCHS = 5 # Including warmup epochs
 WARMUP_EPOCHS = 3
 WARMUP_LR_INIT = 1.822126131809773e-05
 MAX_TO_MIN_LR_DIV_FACTOR = 100
@@ -1144,7 +1145,7 @@ def train_on_single_fold(
     )
     steps_per_epoch = len(DL(train_dataset, TRAIN_BATCH_SIZE)) # ugly, i know
     scheduler = mk_scheduler(optimizer, steps_per_epoch, lr_scheduler_kw)
-    return train_model_on_all_epochs(
+    epoch_metrics, seq_metrics = train_model_on_all_epochs(
         model,
         train_dataset,
         validation_dataset,
@@ -1155,6 +1156,9 @@ def train_on_single_fold(
         training_kw,
         device=device,
     )
+    os.makedirs("metrics/", exist_ok=True)
+    epoch_metrics.to_parquet(f"metrics/epoch_metrics_fold_{fold_idx}.parquet")
+    seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
 # %%
 def sgkf_from_tensor_dataset(
@@ -1178,6 +1182,13 @@ def sgkf_from_tensor_dataset(
     for fold_idx in folds_idx_oredered_by_score:
         yield *fold_indices[fold_idx], SEED + fold_idx
 
+def load_metrics(name_format:str) -> DF:
+    all_metrics = DF()
+    for fold_idx in range(N_FOLDS):
+        fold_metrics = pd.read_parquet(join("metrics", name_format.format(fold_idx)))
+        all_metrics = pd.concat((all_metrics, fold_metrics))
+    return all_metrics
+
 # %%
 def train_on_all_folds(
         lr_scheduler_kw: dict,
@@ -1185,7 +1196,6 @@ def train_on_all_folds(
         training_kw: dict,
         trial: Optional[optuna.trial.Trial]=None,
     ) -> None:
-    from time import time
     start_time = time()
     seed_everything(seed=SEED)
     ctx = mp.get_context("spawn")
@@ -1238,11 +1248,24 @@ def train_on_all_folds(
         proc.close()
 
     end_time = time()
+    
+    epoch_metrics = load_metrics("epoch_metrics_fold_{}.parquet")
+    seq_metrics = load_metrics("seq_metrics_fold_{}.parquet")
     print(f"done in {end_time - start_time:.2f}s.")
+    print("all epochs metrics:")
+    print(epoch_metrics)
+    print("mean f1 score:")
+    mean_val_score = (
+        epoch_metrics
+        .groupby(level=0)
+        .agg({"final_metric": "mean"})
+    )
+    print(mean_val_score)
+    return mean_val_score, epoch_metrics, seq_metrics
 
 # %%
 if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
-    train_on_all_folds(
+    mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         lr_scheduler_kw={
             'warmup_epochs': 14,
             'cycle_mult': 1.0,
@@ -1365,7 +1388,7 @@ def load_model_ensemble(parent_dir:str) -> list[nn.Module]:
     device = torch.device("cuda")
     model_ensemble = []
     for fold in range(N_FOLDS):
-        model = mk_model()
+        model = mk_model().cuda()
         checkpoint = torch.load(
             join(
                 parent_dir,
@@ -1414,8 +1437,6 @@ def preprocess_sequence_at_inference(sequence_df:pl.DataFrame) -> ndarray:
         .pipe(agg_tof_cols_per_sensor)          # Aggregate ToF columns.
         .pipe(add_diff_features)                # 
         .loc[:, sorted(meta_data["feature_cols"])]      # Retain only the usefull columns a.k.a features.
-        # .sub(meta_data["mean"])                 # Subtract features by their mean, std norm pt.1.
-        # .div(meta_data["std"])                  # Divide by Standard deviation, std norm pt.2.
         .pipe(length_normed_sequence_feat_arr, meta_data["pad_seq_len"], SEQ_PAD_TRUNC_MODE)  # get feature ndarray of sequence.
         .T                                      # Transpose to swap channel and X dimensions.
     )
@@ -1430,9 +1451,10 @@ def predict(sequence: pl.DataFrame, _: pl.DataFrame) -> str:
     x_tensor = (
         torch.unsqueeze(Tensor(preprocess_sequence_at_inference(sequence)), dim=0)
         .float()
-        .cuda() #to(device)
+        .cuda()
     )
     print(x_tensor.shape)
+    print(x_tensor.device)
 
     all_outputs = []
     with torch.no_grad():
