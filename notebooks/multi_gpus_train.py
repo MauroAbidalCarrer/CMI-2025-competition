@@ -536,8 +536,8 @@ def create_preprocessed_dataset():
 # ### Compute and save preprocessed dataset
 
 # %%
-if __name__ == "__main__":
-    create_preprocessed_dataset()
+# if __name__ == "__main__":
+#     create_preprocessed_dataset()
 
 # %% [markdown]
 # ### Meta data loading
@@ -1093,12 +1093,13 @@ def train_model_on_all_epochs(
     # Early stopping
     best_metric = -np.inf
     epochs_no_improve = 0
+    epoch = 0
 
-    for epoch in range(1, TRAINING_EPOCHS + 1):
+    for _ in range(TRAINING_EPOCHS):
+        epoch += 1
         train_metrics = train_model_on_single_epoch(model, train_loader, criterion, optimizer, scheduler, training_kw, device)
         validation_metrics = evaluate_model(model, validation_loader, criterion, device)
         metrics.append({"fold": fold, "epoch": epoch} | train_metrics | validation_metrics)
-        print(f"epoch {epoch:02d}: {validation_metrics['final_metric']:.4f}")
         if validation_metrics["final_metric"] > best_metric:
             best_metric = validation_metrics["final_metric"]
             epochs_no_improve = 0
@@ -1106,9 +1107,9 @@ def train_model_on_all_epochs(
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= PATIENCE:
-                print(f"Early stopping triggered at epoch {epoch}")
                 model.load_state_dict(best_model_state)
                 break
+    print("fold", fold, "stopped at", epoch, "score:", validation_metrics['final_metric'])
     os.makedirs("models", exist_ok=True)
     torch.save(best_model_state, f"models/model_fold_{fold}.pth")
     epoch_wise_metrics = DF.from_records(metrics).set_index(["fold", "epoch"])
@@ -1160,7 +1161,8 @@ def sgkf_from_tensor_dataset(
     # dataset: TensorDataset,
     n_splits: int = 5,
     shuffle: bool = True,
-) -> Iterator[tuple[Subset, Subset, int]]:
+) -> Iterator[tuple[int, int, int]]:
+    """Returns iterator of tuple of train and val indices and seed."""
     # Load sequence meta data to get classes and groups parameters
     seq_meta = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
     # X, *_ = dataset.tensors
@@ -1175,81 +1177,8 @@ def sgkf_from_tensor_dataset(
 
     for fold_idx in folds_idx_oredered_by_score:
         yield *fold_indices[fold_idx], SEED + fold_idx
-        # train_idx, val_idx = fold_indices[fold_idx]
-        # yield Subset(dataset, train_idx), Subset(dataset, val_idx), SEED + fold_idx
 
 # %%
-def train_on_all_folds(
-        # full_dataset: Dataset,
-        lr_scheduler_kw: dict,
-        optimizer_kw: dict,
-        training_kw: dict,
-        trial: Optional[optuna.trial.Trial]=None,
-    ) -> tuple[float, DF, DF]:
-    from time import time
-    start_time = time()
-    seed_everything(seed=SEED)
-    ctx = mp.get_context("spawn")
-    processes = []
-    gpus = list(range(torch.cuda.device_count()))
-    full_datasets = []
-    for gpu_idx in gpus:
-        device = torch.device(f"cuda:{gpu_idx}")
-        full_datasets.append(CMIDataset(device))
-    folds_it = sgkf_from_tensor_dataset(N_FOLDS)
-    for fold_idx, (train_idx, validation_idx, seed) in enumerate(folds_it):
-        gpu_idx = gpus[fold_idx % len(gpus)]
-        p = ctx.Process(target=train_on_single_fold,
-            args=(
-                fold_idx,
-                full_datasets[gpu_idx],
-                train_idx,
-                validation_idx,
-                lr_scheduler_kw,
-                optimizer_kw,
-                training_kw,
-                seed,
-                gpu_idx,
-            )
-        )
-        print("starting process for fold", fold_idx)
-        p.start()
-        processes.append(p)
-    for p_idx, p in enumerate(processes):
-        p.join()
-        print("joined", p_idx)
-        # all_epoch_metrics = pd.concat((all_epoch_metrics, epoch_metrics))
-        # all_seq_meta_data_metrics = pd.concat((all_seq_meta_data_metrics, fold_seq_meta_data_metrics.assign(fold=fold_idx)))
-
-        # if trial is not None:
-        #     best_epoch_metrics = epoch_metrics.loc[epoch_metrics["final_metric"].idxmax()]
-        #     trial.report(best_epoch_metrics["final_metric"], step=fold_idx)
-        #     if trial.should_prune() and fold_idx < N_FOLDS - 1:
-        #         print("Raising trial pruned exception.")
-        #         raise TrialPruned()
-    end_time = time()
-    print(f"done in {end_time - start_time}s.")
-    
-    # print("\n" + "="*50)
-    # print("Cross-Validation Results")
-    # print("="*50)
-
-    # # Statistiques pour les meilleures métriques
-    # best_metrics:DF = (
-    #     all_epoch_metrics
-    #     .loc[:, ["binary_f1", "macro_f1", "final_metric"]]
-    #     .groupby(level=0)
-    #     .max()
-    # )
-
-    # print("\nBest Fold-wise Metrics:")
-    # display(best_metrics)
-    # print("\nGlobal Statistics (Best Metrics):")
-    # print(f"Mean Best Final Metric: {best_metrics['final_metric'].mean():.4f} ± {best_metrics['final_metric'].std():.4f}")
-    # print(f"Mean Best Binary F1: {best_metrics['binary_f1'].mean():.4f} ± {best_metrics['binary_f1'].std():.4f}")
-    # print(f"Mean Best Macro F1: {best_metrics['macro_f1'].mean():.4f} ± {best_metrics['macro_f1'].std():.4f}")
-
-    # return best_metrics["final_metric"].mean(), all_epoch_metrics, all_seq_meta_data_metrics
 def train_on_all_folds(
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
@@ -1313,9 +1242,7 @@ def train_on_all_folds(
 
 # %%
 if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
-    # full_dataset = CMIDataset()
     train_on_all_folds(
-        # full_dataset,
         lr_scheduler_kw={
             'warmup_epochs': 14,
             'cycle_mult': 1.0,
@@ -1335,22 +1262,22 @@ if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
         },
     )
     # seq_meta_data_metrics.to_parquet("seq_meta_data_metrics.parquet")
-    # user_input = input("Upload model ensemble?").lower()
-    # if user_input == "yes":
-    #     kagglehub.model_upload(
-    #         handle=join(
-    #             kagglehub.whoami()["username"],
-    #             MODEL_NAME,
-    #             "pyTorch",
-    #             MODEL_VARIATION,
-    #         ),
-    #         local_model_dir="models",
-    #         version_notes=input("Please provide model version notes:")
-    #     )
-    # elif user_input == "no":
-    #     print("Model has not been uploaded to kaggle.")
-    # else:
-    #     print("User input was not understood, model has not been uploaded to kaggle.")
+    user_input = input("Upload model ensemble?").lower()
+    if user_input == "yes":
+        kagglehub.model_upload(
+            handle=join(
+                kagglehub.whoami()["username"],
+                MODEL_NAME,
+                "pyTorch",
+                MODEL_VARIATION,
+            ),
+            local_model_dir="models",
+            version_notes=input("Please provide model version notes:")
+        )
+    elif user_input == "no":
+        print("Model has not been uploaded to kaggle.")
+    else:
+        print("User input was not understood, model has not been uploaded to kaggle.")
 
 # %% [markdown]
 # ## Hyperparameter tuning
