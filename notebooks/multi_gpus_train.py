@@ -218,6 +218,7 @@ warnings.filterwarnings(
     ),
     category=pd.errors.PerformanceWarning,
 )
+warnings.filterwarnings("ignore", message=".*sm_120.*")
 
 # %% [markdown]
 # ### device setup
@@ -1096,11 +1097,11 @@ def train_model_on_all_epochs(
         train_metrics = train_model_on_single_epoch(model, train_loader, criterion, optimizer, scheduler, training_kw, device)
         validation_metrics = evaluate_model(model, validation_loader, criterion, device)
         metrics.append({"fold": fold, "epoch": epoch} | train_metrics | validation_metrics)
+        print(f"epoch {epoch:02d}: {validation_metrics['final_metric']:.4f}")
         if validation_metrics["final_metric"] > best_metric:
             best_metric = validation_metrics["final_metric"]
             epochs_no_improve = 0
             best_model_state = model.state_dict()
-            print(f"epoch {epoch:02d}: {validation_metrics['final_metric']:.4f}")
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= PATIENCE:
@@ -1184,10 +1185,10 @@ def train_on_all_folds(
         training_kw: dict,
         trial: Optional[optuna.trial.Trial]=None,
     ) -> tuple[float, DF, DF]:
+    from time import time
+    start_time = time()
     seed_everything(seed=SEED)
     ctx = mp.get_context("spawn")
-    # all_epoch_metrics:DF = DF()
-    # all_seq_meta_data_metrics:DF = DF()
     processes = []
     gpus = list(range(torch.cuda.device_count()))
     full_datasets = []
@@ -1225,8 +1226,9 @@ def train_on_all_folds(
         #     if trial.should_prune() and fold_idx < N_FOLDS - 1:
         #         print("Raising trial pruned exception.")
         #         raise TrialPruned()
-    print("done")
-
+    end_time = time()
+    print(f"done in {end_time - start_time}s.")
+    
     # print("\n" + "="*50)
     # print("Cross-Validation Results")
     # print("="*50)
@@ -1440,7 +1442,7 @@ def predict(sequence: pl.DataFrame, _: pl.DataFrame) -> str:
     x_tensor = (
         torch.unsqueeze(Tensor(preprocess_sequence_at_inference(sequence)), dim=0)
         .float()
-        .to(device)
+        .cuda() #to(device)
     )
     print(x_tensor.shape)
 
