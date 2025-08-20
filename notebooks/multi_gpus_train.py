@@ -164,7 +164,7 @@ SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 2
+N_FOLDS = 10
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8
@@ -1249,6 +1249,66 @@ def train_on_all_folds(
     # print(f"Mean Best Macro F1: {best_metrics['macro_f1'].mean():.4f} ± {best_metrics['macro_f1'].std():.4f}")
 
     # return best_metrics["final_metric"].mean(), all_epoch_metrics, all_seq_meta_data_metrics
+def train_on_all_folds(
+        lr_scheduler_kw: dict,
+        optimizer_kw: dict,
+        training_kw: dict,
+        trial: Optional[optuna.trial.Trial]=None,
+    ) -> None:
+    from time import time
+    start_time = time()
+    seed_everything(seed=SEED)
+    ctx = mp.get_context("spawn")
+    gpus = list(range(torch.cuda.device_count()))
+    full_datasets = {gpu_idx: CMIDataset(torch.device(f"cuda:{gpu_idx}")) for gpu_idx in gpus}
+
+    folds_it = list(sgkf_from_tensor_dataset(N_FOLDS))
+    processes: list[mp.Process] = []
+
+    # keep track of which GPU is free
+    active: dict[int, mp.Process] = {}
+
+    for fold_idx, (train_idx, validation_idx, seed) in enumerate(folds_it):
+        # wait until a GPU is free
+        while True:
+            free_gpus = [gpu for gpu in gpus if gpu not in active]
+            if free_gpus:
+                gpu_idx = free_gpus[0]
+                break
+            # block until one process finishes
+            for gpu_idx, proc in list(active.items()):
+                proc.join(timeout=0.1)
+                if not proc.is_alive():
+                    proc.close()
+                    del active[gpu_idx]
+
+        # now gpu_idx is free
+        p = ctx.Process(
+            target=train_on_single_fold,
+            args=(
+                fold_idx,
+                full_datasets[gpu_idx],
+                train_idx,
+                validation_idx,
+                lr_scheduler_kw,
+                optimizer_kw,
+                training_kw,
+                seed,
+                gpu_idx,
+            )
+        )
+        print(f"Starting process for fold {fold_idx} on GPU {gpu_idx}")
+        p.start()
+        active[gpu_idx] = p
+        processes.append(p)
+
+    # wait for all remaining processes
+    for gpu_idx, proc in active.items():
+        proc.join()
+        proc.close()
+
+    end_time = time()
+    print(f"done in {end_time - start_time:.2f}s.")
 
 # %%
 if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
