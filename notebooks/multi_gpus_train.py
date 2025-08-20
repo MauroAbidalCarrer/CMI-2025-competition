@@ -536,7 +536,8 @@ def create_preprocessed_dataset():
 # ### Compute and save preprocessed dataset
 
 # %%
-# create_preprocessed_dataset()
+if __name__ == "__main__":
+    create_preprocessed_dataset()
 
 # %% [markdown]
 # ### Meta data loading
