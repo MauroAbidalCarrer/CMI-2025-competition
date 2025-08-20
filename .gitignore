@@ -1,4 +1,5 @@
 settings.json
+*.npy
 *.parquet
 objectives.md
 submission.parquet
