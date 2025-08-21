@@ -1,10 +1,13 @@
+settings.json
+*.npy
 *.parquet
 objectives.md
 submission.parquet
 todo.md
 *.zip
-notebooks/preprocessed_dataset/*
+*/preprocessed_dataset/*
 *.pth
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
