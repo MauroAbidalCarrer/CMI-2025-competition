@@ -1268,43 +1268,44 @@ def train_on_all_folds(
     return mean_val_score, epoch_metrics, seq_metrics
 
 # %%
-# if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
-#     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
-#         lr_scheduler_kw={
-#             'warmup_epochs': 14,
-#             'cycle_mult': 1.0,
-#             'max_lr': 0.00792127195137508,
-#             'init_cycle_epochs': 4,
-#             'lr_cycle_factor': 0.6,
-#             'max_to_min_div_factor': 250,
-#         },
-#         optimizer_kw={
-#             'weight_decay': 0.0009610813976803525, 
-#             'beta_0': 0.89889010289165792,
-#             'beta_1': 0.99722853486503933,
-#         },
-#         training_kw={
-#             'orient_loss_weight': 0.30000000000000004,
-#             'demos_loss_weight': 0.30000000000000004,
-#         },
-#     )
-#     # seq_meta_data_metrics.to_parquet("seq_meta_data_metrics.parquet")
-#     user_input = input("Upload model ensemble?").lower()
-#     if user_input == "yes":
-#         kagglehub.model_upload(
-#             handle=join(
-#                 kagglehub.whoami()["username"],
-#                 MODEL_NAME,
-#                 "pyTorch",
-#                 MODEL_VARIATION,
-#             ),
-#             local_model_dir="models",
-#             version_notes=input("Please provide model version notes:")
-#         )
-#     elif user_input == "no":
-#         print("Model has not been uploaded to kaggle.")
-#     else:
-#         print("User input was not understood, model has not been uploaded to kaggle.")
+if not os.getenv('KAGGLE_IS_COMPETITION_RERUN') and __name__ == "__main__":
+    
+    mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
+        lr_scheduler_kw={
+            'warmup_epochs': 14,
+            'cycle_mult': 0.9,
+            'max_lr': 0.00652127195137508,
+            'init_cycle_epochs': 4,
+            'lr_cycle_factor': 0.45,
+            'max_to_min_div_factor': 250,
+        },
+        optimizer_kw={
+            'weight_decay': 0.000981287923867241, 
+            'beta_0': 0.8141978952748745,
+            'beta_1': 0.9905729096966865,
+        },
+        training_kw={
+            'orient_loss_weight': 1.0,
+            'demos_loss_weight': 0.6000000000000001,
+        },
+    )
+    # seq_meta_data_metrics.to_parquet("seq_meta_data_metrics.parquet")
+    user_input = input("Upload model ensemble?").lower()
+    if user_input == "yes":
+        kagglehub.model_upload(
+            handle=join(
+                kagglehub.whoami()["username"],
+                MODEL_NAME,
+                "pyTorch",
+                MODEL_VARIATION,
+            ),
+            local_model_dir="models",
+            version_notes=input("Please provide model version notes:")
+        )
+    elif user_input == "no":
+        print("Model has not been uploaded to kaggle.")
+    else:
+        print("User input was not understood, model has not been uploaded to kaggle.")
 
 # %% [markdown]
 # ## Hyperparameter tuning
@@ -1360,24 +1361,24 @@ def objective(trial: optuna.trial.Trial) -> float:
     )[0]
 
 # %%
-if __name__ == "__main__":
-    study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
-    study.optimize(objective, n_trials=100, timeout=60 * 60 )
+# if __name__ == "__main__":
+#     study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
+#     study.optimize(objective, n_trials=100, timeout=60 * 60 * 3)
 
-    pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
-    complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
+#     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
+#     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 
-    print("Study statistics: ")
-    print("  Number of finished trials: ", len(study.trials))
-    print("  Number of pruned trials: ", len(pruned_trials))
-    print("  Number of complete trials: ", len(complete_trials))
-    print("Best trial:")
-    current_trial = study.best_trial
+#     print("Study statistics: ")
+#     print("  Number of finished trials: ", len(study.trials))
+#     print("  Number of pruned trials: ", len(pruned_trials))
+#     print("  Number of complete trials: ", len(complete_trials))
+#     print("Best trial:")
+#     current_trial = study.best_trial
 
-    print("  Value: ", current_trial.value)
-    print("  Params: ")
-    for key, value in current_trial.params.items():
-        print("    {}: {}".format(key, value))
+#     print("  Value: ", current_trial.value)
+#     print("  Params: ")
+#     for key, value in current_trial.params.items():
+#         print("    {}: {}".format(key, value))
 
 # %% [markdown]
 # ## Submission
