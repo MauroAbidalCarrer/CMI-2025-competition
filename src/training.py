@@ -15,18 +15,21 @@ from torch import nn, Tensor
 from torch.optim import Optimizer
 import torch.multiprocessing as mp
 from pandas import DataFrame as DF
+from torch.utils.data import Subset
 from sklearn.metrics import f1_score
-from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader as DL
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.utils.data import Dataset, TensorDataset
 from sklearn.model_selection import StratifiedGroupKFold
 
-from utils import seed_everything
 from config import *
+from model import mk_model
+from utils import seed_everything
+from preprocessing import get_meta_data
 
 
 class CMIDataset(TensorDataset):
-    def __init__(self, device:torch.device):
+    def __init__(self, device: torch.device):
         x = np.load(join("preprocessed_dataset", "X.npy")).swapaxes(1, 2)
         y = np.load(join("preprocessed_dataset", "Y.npy"))
         auxiliary_orientation_y = np.load(join("preprocessed_dataset", "orientation_Y.npy"))
@@ -113,13 +116,12 @@ def mk_scheduler(optimizer:Optimizer, steps_per_epoch:int, lr_scheduler_kw:dict)
         gamma=lr_scheduler_kw["lr_cycle_factor"],
     ) 
 
-
 def mixup_data(
-    x:Tensor,
-    y:Tensor,
-    aux_y:Tensor,
-    alpha=0.2
-) -> tuple[Tensor, Tensor] | tuple[Tensor, Tensor, Tensor]:
+        x:Tensor,
+        y:Tensor,
+        aux_y:Tensor,
+        alpha=0.2
+    ) -> tuple[Tensor, Tensor] | tuple[Tensor, Tensor, Tensor]:
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
@@ -130,10 +132,11 @@ def mixup_data(
     mixed_x = lam * x + (1 - lam) * x[index, :]
     mixed_y = lam * y + (1 - lam) * y[index, :]
     mixed_aux_y = lam * aux_y + (1 - lam) * aux_y[index, :]
-    
+
     return mixed_x, mixed_y, mixed_aux_y
 
 def train_model_on_single_epoch(
+        meta_data:dict,
         model:nn.Module,
         train_loader:DL,
         criterion:callable,
@@ -153,7 +156,7 @@ def train_model_on_single_epoch(
         add_noise = torch.randn_like(batch_x, device=device) * 0.04
         scale_noise = torch.rand_like(batch_x, device=device) * (1.1 - 0.9) + 0.9
         batch_x = (add_noise + batch_x) * scale_noise
-        batch_x[:TRAIN_BATCH_SIZE // 2, tof_idx + thm_idx] = 0.0
+        batch_x[:TRAIN_BATCH_SIZE // 2, meta_data["tof_idx"] + meta_data["thm_idx"]] = 0.0
         batch_y = batch_y.to(device)
         batch_x = batch_x.float()
         
@@ -176,7 +179,13 @@ def train_model_on_single_epoch(
 
     return train_metrics
 
-def evaluate_model(model:nn.Module, validation_loader:DL, criterion:callable, device:torch.device) -> dict:
+def evaluate_model(
+        meta_data:dict,
+        model:nn.Module,
+        validation_loader:DL,
+        criterion:callable,
+        device:torch.device
+    ) -> dict:
     model.eval()
     eval_metrics = {}
     eval_metrics["val_loss"] = 0.0
@@ -188,7 +197,7 @@ def evaluate_model(model:nn.Module, validation_loader:DL, criterion:callable, de
         for batch_x, batch_y, oirent_y, demos_y, idx in validation_loader:
             batch_x = batch_x.to(device).clone()
             batch_y = batch_y.to(device)
-            batch_x[:VALIDATION_BATCH_SIZE // 2, tof_idx + thm_idx] = 0.0
+            batch_x[:VALIDATION_BATCH_SIZE // 2, meta_data["tof_idx"] + meta_data["thm_idx"]] = 0.0
 
             outputs, _, _ = model(batch_x)
             loss = criterion(outputs, batch_y)
@@ -281,13 +290,10 @@ def get_perf_and_seq_id(model:nn.Module, data_loader:DL, device:torch.device) ->
 def get_per_sequence_meta_data(model:nn.Module, train_dataset:Dataset, val_dataset:Dataset, device:torch.device) -> DF:
     train_DL = DL(train_dataset, VALIDATION_BATCH_SIZE, shuffle=False)
     val_DL = DL(val_dataset, VALIDATION_BATCH_SIZE, shuffle=False)
-    return (
-        pd.concat((
-            get_perf_and_seq_id(model, train_DL, device).assign(is_train=True),
-            get_perf_and_seq_id(model, val_DL, device).assign(is_train=False),
-        ))
-        .merge(seq_meta_data, how="left", on="sequence_id")
-    )
+    return pd.concat((
+        get_perf_and_seq_id(model, train_DL, device).assign(is_train=True),
+        get_perf_and_seq_id(model, val_DL, device).assign(is_train=False),
+    ))
 
 def train_model_on_all_epochs(
         model:nn.Module,
@@ -304,6 +310,7 @@ def train_model_on_all_epochs(
     Returns:
         tuple[DF, DF]: epoch wise metrics, sample(sequence) wise meta data metrics
     """
+    meta_data = get_meta_data()
     train_loader = DL(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, drop_last=False)
     validation_loader = DL(validation_dataset, VALIDATION_BATCH_SIZE, shuffle=False, drop_last=False)
 
@@ -311,12 +318,12 @@ def train_model_on_all_epochs(
     # Early stopping
     best_metric = -np.inf
     epochs_no_improve = 0
-    epoch = 0
 
+    epoch = 0
     for _ in range(TRAINING_EPOCHS):
         epoch += 1
-        train_metrics = train_model_on_single_epoch(model, train_loader, criterion, optimizer, scheduler, training_kw, device)
-        validation_metrics = evaluate_model(model, validation_loader, criterion, device)
+        train_metrics = train_model_on_single_epoch(meta_data, model, train_loader, criterion, optimizer, scheduler, training_kw, device)
+        validation_metrics = evaluate_model(meta_data, model, validation_loader, criterion, device)
         metrics.append({"fold": fold, "epoch": epoch} | train_metrics | validation_metrics)
         if validation_metrics["final_metric"] > best_metric:
             best_metric = validation_metrics["final_metric"]
@@ -328,10 +335,15 @@ def train_model_on_all_epochs(
                 model.load_state_dict(best_model_state)
                 break
     print("fold", fold, "stopped at", epoch, "score:", validation_metrics['final_metric'])
+
     os.makedirs("models", exist_ok=True)
     torch.save(best_model_state, f"models/model_fold_{fold}.pth")
     epoch_wise_metrics = DF.from_records(metrics).set_index(["fold", "epoch"])
-    sample_wise_meta_data = get_per_sequence_meta_data(model, train_dataset, validation_dataset, device)
+    seq_meta_data = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
+    sample_wise_meta_data = (
+        get_per_sequence_meta_data(model, train_dataset, validation_dataset, device)
+        .merge(seq_meta_data, how="left", on="sequence_id")
+    )
 
     return epoch_wise_metrics, sample_wise_meta_data
 

@@ -4,7 +4,7 @@ import json
 import shutil
 from os.path import join
 from functools import partial
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from operator import methodcaller
 from typing import Literal
 
@@ -242,7 +242,6 @@ def fold_dfs_to_ndarrays(train:DF, validation:DF, dataset_normed_seq_len:int, se
         *df_to_ndarrays(validation, dataset_normed_seq_len, seq_pad_trunc_mode),
     )
 
-# %%
 def preprocess_competitino_dataset() -> DF:
     csv_path = kagglehub.competition_download(COMPETITION_HANDLE, path="train.csv")
     return (
@@ -259,7 +258,7 @@ def preprocess_competitino_dataset() -> DF:
         .pipe(add_quat_angle_mag)
         .pipe(one_hot_encode_targets)
         .pipe(agg_tof_cols_per_sensor)
-        .pipe(add_diff_features)
+        # .pipe(add_diff_features)
     )
 
 def save_sequence_meta_data(df:DF) -> DF:

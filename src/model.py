@@ -177,12 +177,9 @@ class CMIHARModule(nn.Module):
         get_meta_data
         self.input_meta_data = get_meta_data()
         if dataset_x is not None:
-            x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
-            x_std = dataset_x.std(dim=(0, 2), keepdim=True)
-            self.register_buffer("x_mean", x_mean)
-            self.register_buffer("x_std", x_std)
+            self.compute_x_std_and_mean(dataset_x)
         else:
-            x_stats_size = (1, len(self.input_meta_data["feature_cols"]), 1)
+            x_stats_size = (1, len(self.input_meta_data["feature_cols"]) * 2, 1)
             self.register_buffer("x_mean", torch.empty(x_stats_size))
             self.register_buffer("x_std", torch.empty(x_stats_size))
         self.imu_branch = nn.Sequential(
@@ -196,8 +193,30 @@ class CMIHARModule(nn.Module):
         self.main_head = MLPhead(mlp_width, 18)
         self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_aux_classes"])
         self.aux_demographics_head = MLPhead(mlp_width, 2)
+    
+    def compute_x_std_and_mean(self, dataset_x: Tensor):
+        x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
+        x_std = dataset_x.std(dim=(0, 2), keepdim=True)
+        diff_means = []
+        diff_stds = []
+        for chan_idx in range(dataset_x.shape[CHANNELS_DIMENSION]):
+            diff = dataset_x[:, [chan_idx], 1:] - dataset_x[:, [chan_idx], :-1]
+            diff_means.append(diff.mean(dim=(0, 2), keepdim=True))
+            diff_stds.append(diff.std(dim=(0, 2), keepdim=True))
+        diff_means = torch.concatenate(diff_means, dim=CHANNELS_DIMENSION)
+        print("diff_means:", diff_means.shape)
+        x_mean = torch.concatenate((x_mean, diff_means), dim=CHANNELS_DIMENSION)
+        diff_stds = torch.concatenate(diff_stds, dim=CHANNELS_DIMENSION)
+        print("diff_stds:", diff_stds.shape)
+        x_std = torch.concatenate((x_std, diff_stds), dim=CHANNELS_DIMENSION)
+        self.register_buffer("x_mean", x_mean)
+        self.register_buffer("x_std", x_std)
 
     def forward(self, x:Tensor) -> Tensor:
+        x = torch.concatenate((
+            x, 
+            torch.pad(x[..., 1:] - x[..., :-1], (0, 1))
+        ))
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
         x = (x - self.x_mean) / self.x_std
         concatenated_activation_maps = torch.cat(

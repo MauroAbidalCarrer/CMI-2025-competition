@@ -2,8 +2,8 @@ import optuna
 from optuna.trial import TrialState
 from optuna.pruners import BasePruner
 
-from optu
 from config import *
+
 from training import train_on_all_folds
 
 class FoldPruner(BasePruner):
