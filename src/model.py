@@ -6,6 +6,7 @@ import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
 
+from preprocessing import get_meta_data
 from config import *
 
 class MultiScaleConvs(nn.Module):
@@ -166,7 +167,6 @@ class MLPhead(nn.Sequential):
 class CMIHARModule(nn.Module):
     def __init__(
             self,
-            input_meta_data:dict,
             mlp_width:int,
             dataset_x:Optional[Tensor]=None,
             tof_dropout_ratio:float=0,
@@ -174,26 +174,27 @@ class CMIHARModule(nn.Module):
             imu_dropout_ratio:float=0,
         ):
         super().__init__()
-        self.input_meta_data = input_meta_data
+        get_meta_data
+        self.input_meta_data = get_meta_data()
         if dataset_x is not None:
             x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
             x_std = dataset_x.std(dim=(0, 2), keepdim=True)
             self.register_buffer("x_mean", x_mean)
             self.register_buffer("x_std", x_std)
         else:
-            x_stats_size = (1, len(input_meta_data["feature_cols"]), 1)
+            x_stats_size = (1, len(self.input_meta_data["feature_cols"]), 1)
             self.register_buffer("x_mean", torch.empty(x_stats_size))
             self.register_buffer("x_std", torch.empty(x_stats_size))
         self.imu_branch = nn.Sequential(
-            ResidualBlock(len(input_meta_data["imu_idx"]), 219, imu_dropout_ratio),
+            ResidualBlock(len(self.input_meta_data["imu_idx"]), 219, imu_dropout_ratio),
             ResidualBlock(219, 500, imu_dropout_ratio),
         )
-        self.tof_branch = AlexNet([len(input_meta_data["tof_idx"]), 82, 500], tof_dropout_ratio)
-        self.thm_branch = AlexNet([len(input_meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
+        self.tof_branch = AlexNet([len(self.input_meta_data["tof_idx"]), 82, 500], tof_dropout_ratio)
+        self.thm_branch = AlexNet([len(self.input_meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
         self.main_head = MLPhead(mlp_width, 18)
-        self.aux_orientation_head = MLPhead(mlp_width, input_meta_data["n_aux_classes"])
+        self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_aux_classes"])
         self.aux_demographics_head = MLPhead(mlp_width, 2)
 
     def forward(self, x:Tensor) -> Tensor:
@@ -213,12 +214,10 @@ class CMIHARModule(nn.Module):
         return self.main_head(attended), self.aux_orientation_head(attended), self.aux_demographics_head(attended)
 
 def mk_model(
-        input_meta_data:dict,
         dataset_x:Optional[Tensor]=None,
         device:Optional[torch.device]=None,
     ) -> nn.Module:
     model = CMIHARModule(
-        input_meta_data,
         mlp_width=256,
         dataset_x=dataset_x,
         imu_dropout_ratio=0.2,
