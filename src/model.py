@@ -9,41 +9,6 @@ import torch.nn.functional as F
 from preprocessing import get_meta_data
 from config import *
 
-class MultiScaleConvs(nn.Module):
-    def __init__(self, in_channels:int, kernel_sizes:list[int]):
-        super().__init__()
-        def mk_conv_block(k_size) -> nn.Sequential:
-            return nn.Sequential(
-                nn.Conv1d(in_channels, in_channels, k_size, padding=k_size // 2, groups=in_channels),
-                nn.BatchNorm1d(in_channels),
-                nn.ReLU(),
-            )
-        self.convs = nn.ModuleList(map(mk_conv_block, kernel_sizes))
-
-    def forward(self, x:Tensor) -> Tensor:
-        yes = torch.cat([conv(x) for conv in self.convs] + [x], dim=1)
-        # print("stem output shape:", yes.shape)
-        return yes
-
-class ImuFeatureExtractor(nn.Module):
-    def __init__(self, in_channels:int, kernel_size:int=15):
-        super().__init__()
-
-        self.lpf = nn.Conv1d(
-            in_channels,
-            in_channels,
-            kernel_size=kernel_size,
-            padding=kernel_size//2,
-            groups=in_channels,
-            bias=False,
-        )
-        nn.init.kaiming_uniform_(self.lpf.weight, a=math.sqrt(5))
-
-    def forward(self, x:Tensor) -> Tensor:
-        lpf_output = self.lpf(x)
-        hpf_output = x - lpf_output
-        return torch.cat((lpf_output, hpf_output, x), dim=1)  # (B, C_out, T)
-
 class SqueezeExcitationBlock(nn.Module):
     # Copy/paste of https://www.kaggle.com/code/wasupandceacar/lb-0-82-5fold-single-bert-model#Model implementation
     def __init__(self, channels:int, reduction:int=8):
@@ -81,47 +46,6 @@ class ResidualBlock(nn.Module):
             )
             self.head.insert(1, nn.MaxPool1d(2))
 
-    def forward(self, x:Tensor) -> Tensor:
-        activaition_maps = self.skip_connection(x) + self.blocks(x)
-        return self.head(activaition_maps)
-
-class MBConvBlock(nn.Module):
-    # From this schema: https://media.licdn.com/dms/image/v2/D5612AQFjbDOm5uyxdw/article-inline_image-shrink_1500_2232/article-inline_image-shrink_1500_2232/0/1683677500817?e=1758153600&v=beta&t=n48_UW5TZTyDPhRFlJXSidUQQPQpuC756M0kNeKmYTY
-    def __init__(self, in_chns:int, out_chns:int, se_reduction:int=8, expansion_ratio:int=4, dropout_ratio:float=0.3):
-        super().__init__()
-        expanded_channels = in_chns * expansion_ratio
-        self.blocks = nn.Sequential(
-            nn.Conv1d(in_chns, expanded_channels, kernel_size=1, bias=False),
-            nn.BatchNorm1d(expanded_channels),
-            nn.ReLU(),
-            nn.Conv1d(
-                expanded_channels,
-                expanded_channels,
-                kernel_size=3,
-                padding=1,
-                groups=expanded_channels,
-                bias=False,
-            ),
-            nn.BatchNorm1d(expanded_channels),
-            nn.ReLU(),
-            SqueezeExcitationBlock(expanded_channels, se_reduction),
-            nn.Conv1d(expanded_channels, out_chns, kernel_size=1, bias=False)
-        )
-        self.head = nn.Sequential(
-            nn.BatchNorm1d(out_chns)
-            # nn.ReLU(),
-            # nn.Dropout(dropout_ratio),
-        )
-        if in_chns == out_chns:
-            self.skip_connection = nn.Identity() 
-        else:
-            # TODO: set bias to False ?
-            self.skip_connection = nn.Sequential(
-                nn.Conv1d(in_chns, out_chns, 1, bias=False),
-                nn.BatchNorm1d(out_chns)
-            )
-            self.head.add_module("max_pool", nn.MaxPool1d(2))
-            
     def forward(self, x:Tensor) -> Tensor:
         activaition_maps = self.skip_connection(x) + self.blocks(x)
         return self.head(activaition_maps)
@@ -197,22 +121,6 @@ class CMIHARModule(nn.Module):
         self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_aux_classes"])
         self.aux_demographics_head = MLPhead(mlp_width, 2)
     
-    def compute_x_std_and_mean(self, dataset_x: Tensor):
-        x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
-        x_std = dataset_x.std(dim=(0, 2), keepdim=True)
-        diff_means = []
-        diff_stds = []
-        for chan_idx in range(dataset_x.shape[CHANNELS_DIMENSION]):
-            diff = dataset_x[:, [chan_idx], 1:] - dataset_x[:, [chan_idx], :-1]
-            diff_means.append(diff.mean(dim=(0, 2), keepdim=True))
-            diff_stds.append(diff.std(dim=(0, 2), keepdim=True))
-        diff_means = torch.concatenate(diff_means, dim=CHANNELS_DIMENSION)
-        x_mean = torch.concatenate((x_mean, diff_means), dim=CHANNELS_DIMENSION)
-        diff_stds = torch.concatenate(diff_stds, dim=CHANNELS_DIMENSION)
-        x_std = torch.concatenate((x_std, diff_stds), dim=CHANNELS_DIMENSION)
-        self.register_buffer("x_mean", x_mean)
-        self.register_buffer("x_std", x_std)
-
     def forward(self, x:Tensor) -> Tensor:
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
         x = (x - self.x_mean) / self.x_std
