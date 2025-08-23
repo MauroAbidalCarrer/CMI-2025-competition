@@ -93,6 +93,7 @@ class CMIHARModule(nn.Module):
             self,
             mlp_width:int,
             dataset_x:Optional[Tensor]=None,
+            reg_demos_dataset_y:Optional[Tensor]=None,
             tof_dropout_ratio:float=0,
             thm_dropout_ratio:float=0,
             imu_dropout_ratio:float=0,
@@ -109,6 +110,15 @@ class CMIHARModule(nn.Module):
             x_stats_size = (1, len(self.input_meta_data["feature_cols"]), 1)
             self.register_buffer("x_mean", torch.empty(x_stats_size))
             self.register_buffer("x_std", torch.empty(x_stats_size))
+        if reg_demos_dataset_y is not None:
+            reg_y_mean = reg_demos_dataset_y.mean(dim=0, keepdim=True)
+            reg_y_std = reg_demos_dataset_y.std(dim=0, keepdim=True)
+            self.register_buffer("reg_y_mean", reg_y_mean)
+            self.register_buffer("reg_y_std", reg_y_std)
+        else:
+            reg_y_stats_size = (1, len(REGRES_DEMOS_TARGETS), 1)
+            self.register_buffer("reg_y_mean", torch.empty(reg_y_stats_size))
+            self.register_buffer("reg_y_std", torch.empty(reg_y_stats_size))
         self.imu_branch = nn.Sequential(
             ResidualBlock(len(self.input_meta_data["imu_idx"]), 219, imu_dropout_ratio),
             ResidualBlock(219, 500, imu_dropout_ratio),
@@ -118,8 +128,9 @@ class CMIHARModule(nn.Module):
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
         self.main_head = MLPhead(mlp_width, 18)
-        self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_aux_classes"])
-        self.aux_demographics_head = MLPhead(mlp_width, 2)
+        self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_orient_classes"])
+        self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
+        self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
     
     def forward(self, x:Tensor) -> Tensor:
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
@@ -135,15 +146,22 @@ class CMIHARModule(nn.Module):
         lstm_output, _  = self.rnn(concatenated_activation_maps.swapaxes(1, 2))
         lstm_output = lstm_output.swapaxes(1, 2) # redundant
         attended = self.attention(lstm_output)
-        return self.main_head(attended), self.aux_orientation_head(attended), self.aux_demographics_head(attended)
+        return (
+            self.main_head(attended),
+            self.aux_orientation_head(attended),
+            self.binary_demographics_head(attended),
+            (self.regres_demographics_head(attended) * self.reg_y_std) + self.reg_y_mean,
+        )
 
 def mk_model(
         dataset_x:Optional[Tensor]=None,
+        reg_demos_dataset_y:Optional[Tensor]=None,
         device:Optional[torch.device]=None,
     ) -> nn.Module:
     model = CMIHARModule(
         mlp_width=256,
         dataset_x=dataset_x,
+        reg_demos_dataset_y=reg_demos_dataset_y,
         imu_dropout_ratio=0.2,
         tof_dropout_ratio=0.2,
         thm_dropout_ratio=0.2,
