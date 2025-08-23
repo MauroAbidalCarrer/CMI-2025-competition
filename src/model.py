@@ -111,14 +111,14 @@ class CMIHARModule(nn.Module):
             self.register_buffer("x_mean", torch.empty(x_stats_size))
             self.register_buffer("x_std", torch.empty(x_stats_size))
         if reg_demos_dataset_y is not None:
-            reg_y_mean = reg_demos_dataset_y.mean(dim=0, keepdim=True)
-            reg_y_std = reg_demos_dataset_y.std(dim=0, keepdim=True)
-            self.register_buffer("reg_y_mean", reg_y_mean)
-            self.register_buffer("reg_y_std", reg_y_std)
+            reg_demos_y_mean = reg_demos_dataset_y.mean(dim=0, keepdim=True)
+            reg_demos_y_std = reg_demos_dataset_y.std(dim=0, keepdim=True)
+            self.register_buffer("reg_demos_y_mean", reg_demos_y_mean)
+            self.register_buffer("reg_demos_y_std", reg_demos_y_std)
         else:
             reg_y_stats_size = (1, len(REGRES_DEMOS_TARGETS), 1)
-            self.register_buffer("reg_y_mean", torch.empty(reg_y_stats_size))
-            self.register_buffer("reg_y_std", torch.empty(reg_y_stats_size))
+            self.register_buffer("reg_demos_y_mean", torch.empty(reg_y_stats_size))
+            self.register_buffer("reg_demos_y_std", torch.empty(reg_y_stats_size))
         self.imu_branch = nn.Sequential(
             ResidualBlock(len(self.input_meta_data["imu_idx"]), 219, imu_dropout_ratio),
             ResidualBlock(219, 500, imu_dropout_ratio),
@@ -150,7 +150,7 @@ class CMIHARModule(nn.Module):
             self.main_head(attended),
             self.aux_orientation_head(attended),
             self.binary_demographics_head(attended),
-            (self.regres_demographics_head(attended) * self.reg_y_std) + self.reg_y_mean,
+            (self.regres_demographics_head(attended) * self.reg_demos_y_std) + self.reg_demos_y_mean,
         )
 
 def mk_model(
