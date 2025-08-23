@@ -33,12 +33,14 @@ class CMIDataset(TensorDataset):
         x = np.load(join("preprocessed_dataset", "X.npy")).swapaxes(1, 2)
         y = np.load(join("preprocessed_dataset", "Y.npy"))
         auxiliary_orientation_y = np.load(join("preprocessed_dataset", "orientation_Y.npy"))
-        auxiliary_demographics_y = np.load(join("preprocessed_dataset", "demographics_Y.npy"))
+        binary_demographics_y = np.load(join("preprocessed_dataset", "binary_demographics_Y.npy"))
+        regression_demographics_y = np.load(join("preprocessed_dataset", "regres_demographics_Y.npy"))
         super().__init__(
             torch.from_numpy(x).to(device),
             torch.from_numpy(y).to(device),
             torch.from_numpy(auxiliary_orientation_y).to(device),
-            torch.from_numpy(auxiliary_demographics_y).to(device),
+            torch.from_numpy(binary_demographics_y).to(device),
+            torch.from_numpy(regression_demographics_y).to(device),
         )
 
     def __getitem__(self, index):
@@ -150,7 +152,7 @@ def train_model_on_single_epoch(
     model.train()
     train_metrics["train_loss"] = 0.0
     total = 0
-    for batch_x, batch_y, batch_orientation_y, demographics_y, idx in train_loader:
+    for batch_x, batch_y, batch_orientation_y, bin_demos_y, reg_demos_y, idx in train_loader:
         batch_orientation_y = batch_orientation_y.clone()
         batch_x = batch_x.to(device).clone()
         add_noise = torch.randn_like(batch_x, device=device) * 0.04
@@ -163,11 +165,12 @@ def train_model_on_single_epoch(
         batch_x, batch_y, batch_orientation_y = mixup_data(batch_x, batch_y, batch_orientation_y)
 
         optimizer.zero_grad()
-        outputs, orient_output, demos_output = model(batch_x)
+        outputs, orient_output, bin_demos_output, reg_demos_output = model(batch_x)
         bce = nn.BCEWithLogitsLoss()
         loss = criterion(outputs, batch_y)  \
-               + bce(demos_output, demographics_y) * training_kw["demos_loss_weight"] \
+               + bce(bin_demos_output, bin_demos_y) * training_kw["bin_demos_weight"] \
                + criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] \
+               + nn.functional.mse_loss(reg_demos_output, reg_demos_y) * training_kw["reg_demos_weight"] \
             
         loss.backward()
         optimizer.step()
@@ -194,12 +197,12 @@ def evaluate_model(
     all_pred = []
 
     with torch.no_grad():
-        for batch_x, batch_y, oirent_y, demos_y, idx in validation_loader:
+        for batch_x, batch_y, *_ in validation_loader:
             batch_x = batch_x.to(device).clone()
             batch_y = batch_y.to(device)
             batch_x[:VALIDATION_BATCH_SIZE // 2, meta_data["tof_idx"] + meta_data["thm_idx"]] = 0.0
 
-            outputs, _, _ = model(batch_x)
+            outputs, *_ = model(batch_x)
             loss = criterion(outputs, batch_y)
             eval_metrics["val_loss"] += loss.item() * batch_x.size(0)
             total += batch_x.size(0)
@@ -244,12 +247,12 @@ def get_perf_and_seq_id(model:nn.Module, data_loader:DL, device:torch.device, se
     metrics:dict[list[ndarray]] = defaultdict(list)
     model.eval()
     with torch.no_grad():
-        for batch_x, batch_y, batch_aux_y, batch_orient_y, idx in data_loader:
+        for batch_x, batch_y, batch_orient_y, batch_bin_demos_y, batch_reg_demos_y, idx in data_loader:
             batch_x = batch_x.to(device).clone()
             batch_y = batch_y.to(device)
             # batch_x[:VALIDATION_BATCH_SIZE // 2, tof_idx + thm_idx] = 0.0
 
-            outputs, orient_outputs, demos_output = model(batch_x)
+            outputs, orient_outputs, bin_demos_output, reg_demos_output = model(batch_x)
             losses = nn.functional.cross_entropy(
                 outputs,
                 batch_y,
@@ -258,16 +261,17 @@ def get_perf_and_seq_id(model:nn.Module, data_loader:DL, device:torch.device, se
             )
             orient_losses = nn.functional.cross_entropy(
                 orient_outputs,
-                batch_aux_y,
+                batch_orient_y,
                 label_smoothing=LABEL_SMOOTHING,
                 reduction="none",
             )
-            demos_losses = nn.functional.binary_cross_entropy_with_logits(
-                demos_output,
-                batch_orient_y,
+            bin_demos_losses = nn.functional.binary_cross_entropy_with_logits(
+                bin_demos_output,
+                batch_bin_demos_y,
                 # label_smoothing=LABEL_SMOOTHING,
                 reduction="none",
             ).cpu().numpy()
+            reg_demos_losses = nn.functional.mse_loss(reg_demos_output, batch_reg_demos_y, reduction="none").cpu().numpy()
             # Get predicted class indices
             preds = torch.argmax(outputs, dim=1).cpu().numpy()
             # Get true class indices from one-hot
@@ -276,8 +280,10 @@ def get_perf_and_seq_id(model:nn.Module, data_loader:DL, device:torch.device, se
 
             metrics["losses"].append(losses.cpu().numpy())
             metrics["orient_losses"].append(orient_losses.cpu().numpy())
-            for denos_target_idx, demos_target in enumerate(DEMOS_TARGETS):
-                metrics[f"{demos_target}_losses"].append(demos_losses[:, denos_target_idx])
+            for bin_demos_target_idx, bin_demos_target in enumerate(BINARY_DEMOS_TARGETS):
+                metrics[f"{bin_demos_target}_losses"].append(bin_demos_losses[:, bin_demos_target_idx])
+            for reg_demos_target_idx, reg_demos_target in enumerate(REGRES_DEMOS_TARGETS):
+                metrics[f"{reg_demos_target}_losses"].append(reg_demos_losses[:, reg_demos_target_idx])
             metrics["preds"].append(preds)
             metrics["trues"].append(trues)
             metrics["accuracies"].append(accuracies)
@@ -362,9 +368,10 @@ def train_on_single_fold(
     criterion = torch.nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
     train_dataset = Subset(full_dataset, train_idx)
     validation_dataset = Subset(full_dataset, validation_idx)
-    all_train_x = train_dataset.dataset.tensors[0][train_dataset.indices]
+    train_x = train_dataset.dataset.tensors[0][train_dataset.indices]
+    train_reg_demos_y = train_dataset.dataset.tensors[4][train_dataset.indices]
     device = torch.device(f"cuda:{gpu_id}")
-    model = mk_model(all_train_x, device)
+    model = mk_model(train_x, train_reg_demos_y, device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         WARMUP_LR_INIT,
@@ -507,7 +514,8 @@ if __name__ == "__main__":
         },
         training_kw={
             'orient_loss_weight': 1.0,
-            'demos_loss_weight': 0.6000000000000001,
+            'bin_demos_weight': 0.6000000000000001,
+            'reg_demos_weight': 0.6000000000000001,
         },
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
