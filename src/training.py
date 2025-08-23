@@ -240,7 +240,7 @@ def evaluate_model(
 
     return eval_metrics
 
-def get_perf_and_seq_id(model:nn.Module, data_loader:DL, device:torch.device) -> DF:
+def get_perf_and_seq_id(model:nn.Module, data_loader:DL, device:torch.device, seq_meta_data:DF) -> DF:
     metrics:dict[list[ndarray]] = defaultdict(list)
     model.eval()
     with torch.no_grad():
@@ -287,12 +287,12 @@ def get_perf_and_seq_id(model:nn.Module, data_loader:DL, device:torch.device) ->
 
     return DF.from_records(metrics)
 
-def get_per_sequence_meta_data(model:nn.Module, train_dataset:Dataset, val_dataset:Dataset, device:torch.device) -> DF:
+def get_per_sequence_meta_data(model:nn.Module, train_dataset:Dataset, val_dataset:Dataset, device:torch.device, seq_meta_data:DF) -> DF:
     train_DL = DL(train_dataset, VALIDATION_BATCH_SIZE, shuffle=False)
     val_DL = DL(val_dataset, VALIDATION_BATCH_SIZE, shuffle=False)
     return pd.concat((
-        get_perf_and_seq_id(model, train_DL, device).assign(is_train=True),
-        get_perf_and_seq_id(model, val_DL, device).assign(is_train=False),
+        get_perf_and_seq_id(model, train_DL, device, seq_meta_data).assign(is_train=True),
+        get_perf_and_seq_id(model, val_DL, device, seq_meta_data).assign(is_train=False),
     ))
 
 def train_model_on_all_epochs(
@@ -341,7 +341,7 @@ def train_model_on_all_epochs(
     epoch_wise_metrics = DF.from_records(metrics).set_index(["fold", "epoch"])
     seq_meta_data = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
     sample_wise_meta_data = (
-        get_per_sequence_meta_data(model, train_dataset, validation_dataset, device)
+        get_per_sequence_meta_data(model, train_dataset, validation_dataset, device, seq_meta_data)
         .merge(seq_meta_data, how="left", on="sequence_id")
     )
 
