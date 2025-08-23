@@ -490,6 +490,7 @@ def train_on_all_folds(
     return mean_val_score, epoch_metrics, seq_metrics
 
 if __name__ == "__main__":
+    seed_everything(SEED)
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         lr_scheduler_kw={
             'warmup_epochs': 14,
