@@ -50,7 +50,7 @@ def objective(trial: optuna.trial.Trial) -> float:
         training_kw={
             "orient_loss_weight": trial.suggest_float("orient_loss_weight", 0, 1, step=0.1),
             "bin_demos_weight": trial.suggest_float("bin_demos_weight", 0, 1, step=0.1),
-            "reg_demos_weight": trial.suggest_float("reg_demos_weight", 0, 1, step=0.1),
+            "reg_demos_weight": trial.suggest_float("reg_demos_weight", 0, 0.6, step=0.1),
         },
         trial=trial,
     )[0]
