@@ -177,9 +177,12 @@ class CMIHARModule(nn.Module):
         get_meta_data
         self.input_meta_data = get_meta_data()
         if dataset_x is not None:
-            self.compute_x_std_and_mean(dataset_x)
+            x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
+            x_std = dataset_x.std(dim=(0, 2), keepdim=True)
+            self.register_buffer("x_mean", x_mean)
+            self.register_buffer("x_std", x_std)
         else:
-            x_stats_size = (1, len(self.input_meta_data["feature_cols"]) * 2, 1)
+            x_stats_size = (1, len(self.input_meta_data["feature_cols"]), 1)
             self.register_buffer("x_mean", torch.empty(x_stats_size))
             self.register_buffer("x_std", torch.empty(x_stats_size))
         self.imu_branch = nn.Sequential(
@@ -211,12 +214,6 @@ class CMIHARModule(nn.Module):
         self.register_buffer("x_std", x_std)
 
     def forward(self, x:Tensor) -> Tensor:
-        x = torch.concatenate((
-            x, 
-            nn.functional.pad(x[..., 1:] - x[..., :-1], (0, 1))
-            ),
-            dim=CHANNELS_DIMENSION,
-        )
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
         x = (x - self.x_mean) / self.x_std
         concatenated_activation_maps = torch.cat(

@@ -19,6 +19,7 @@ from torch.utils.data import DataLoader as DL
 from numpy.lib.stride_tricks import sliding_window_view
 
 from config import *
+from utils import seed_everything
 
 
 def get_feature_cols(df:DF) -> list[str]:
@@ -258,7 +259,7 @@ def preprocess_competitino_dataset() -> DF:
         .pipe(add_quat_angle_mag)
         .pipe(one_hot_encode_targets)
         .pipe(agg_tof_cols_per_sensor)
-        # .pipe(add_diff_features)
+        .pipe(add_diff_features)
     )
 
 def save_sequence_meta_data(df:DF) -> DF:
@@ -339,4 +340,5 @@ def get_meta_data() -> dict:
 
 
 if __name__ == "__main__":
+    seed_everything(SEED)
     create_preprocessed_dataset()
