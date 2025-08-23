@@ -101,24 +101,8 @@ class CMIHARModule(nn.Module):
         super().__init__()
         get_meta_data
         self.input_meta_data = get_meta_data()
-        if dataset_x is not None:
-            x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
-            x_std = dataset_x.std(dim=(0, 2), keepdim=True)
-            self.register_buffer("x_mean", x_mean)
-            self.register_buffer("x_std", x_std)
-        else:
-            x_stats_size = (1, len(self.input_meta_data["feature_cols"]), 1)
-            self.register_buffer("x_mean", torch.empty(x_stats_size))
-            self.register_buffer("x_std", torch.empty(x_stats_size))
-        if reg_demos_dataset_y is not None:
-            reg_demos_y_mean = reg_demos_dataset_y.mean(dim=0, keepdim=True)
-            reg_demos_y_std = reg_demos_dataset_y.std(dim=0, keepdim=True)
-            self.register_buffer("reg_demos_y_mean", reg_demos_y_mean)
-            self.register_buffer("reg_demos_y_std", reg_demos_y_std)
-        else:
-            reg_y_stats_size = (1, len(REGRES_DEMOS_TARGETS), 1)
-            self.register_buffer("reg_demos_y_mean", torch.empty(reg_y_stats_size))
-            self.register_buffer("reg_demos_y_std", torch.empty(reg_y_stats_size))
+        self.init_std_mean(dataset_x, (0, 2), (1, len(self.input_meta_data["feature_cols"]), 1), "x")
+        self.init_std_mean(reg_demos_dataset_y, 0, (1, len(REGRES_DEMOS_TARGETS)), "reg_demos_y")
         self.imu_branch = nn.Sequential(
             ResidualBlock(len(self.input_meta_data["imu_idx"]), 219, imu_dropout_ratio),
             ResidualBlock(219, 500, imu_dropout_ratio),
@@ -131,6 +115,16 @@ class CMIHARModule(nn.Module):
         self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_orient_classes"])
         self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
         self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
+    
+    def init_std_mean(self, data:Optional[Tensor], stats_dim:int|tuple, stats_shape:tuple[int], preffix:str):
+        if data is not None:
+            mean = data.mean(dim=stats_dim, keepdim=True)
+            std = data.std(dim=stats_dim, keepdim=True)
+            self.register_buffer(preffix + "_mean", mean)
+            self.register_buffer(preffix + "_std", std)
+        else:
+            self.register_buffer(preffix + "_mean", torch.empty_like(stats_shape))
+            self.register_buffer(preffix + "_std", torch.empty_like(stats_shape))
     
     def forward(self, x:Tensor) -> Tensor:
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
