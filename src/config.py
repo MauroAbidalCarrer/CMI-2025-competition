@@ -100,7 +100,10 @@ TOF_AGG_FUNCTIONS = [
     "min",
     "max",
 ]
-DEMOS_TARGETS = ["sex", "handedness"]
+BINARY_DEMOS_TARGETS = ["sex", "handedness", "adult_child"]
+REGRES_DEMOS_TARGETS = ["age", "height_cm", "shoulder_to_wrist_cm", "elbow_to_wrist_cm"]
+
+
 # Data augmentation
 JITTER = 0.25
 SCALING = 0.2
