@@ -204,10 +204,8 @@ class CMIHARModule(nn.Module):
             diff_means.append(diff.mean(dim=(0, 2), keepdim=True))
             diff_stds.append(diff.std(dim=(0, 2), keepdim=True))
         diff_means = torch.concatenate(diff_means, dim=CHANNELS_DIMENSION)
-        print("diff_means:", diff_means.shape)
         x_mean = torch.concatenate((x_mean, diff_means), dim=CHANNELS_DIMENSION)
         diff_stds = torch.concatenate(diff_stds, dim=CHANNELS_DIMENSION)
-        print("diff_stds:", diff_stds.shape)
         x_std = torch.concatenate((x_std, diff_stds), dim=CHANNELS_DIMENSION)
         self.register_buffer("x_mean", x_mean)
         self.register_buffer("x_std", x_std)
@@ -215,8 +213,10 @@ class CMIHARModule(nn.Module):
     def forward(self, x:Tensor) -> Tensor:
         x = torch.concatenate((
             x, 
-            torch.pad(x[..., 1:] - x[..., :-1], (0, 1))
-        ))
+            nn.functional.pad(x[..., 1:] - x[..., :-1], (0, 1))
+            ),
+            dim=CHANNELS_DIMENSION,
+        )
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
         x = (x - self.x_mean) / self.x_std
         concatenated_activation_maps = torch.cat(
