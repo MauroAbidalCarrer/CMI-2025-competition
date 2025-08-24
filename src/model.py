@@ -100,22 +100,46 @@ class CMIHARModule(nn.Module):
         ):
         super().__init__()
         get_meta_data
-        self.input_meta_data = get_meta_data()
-        self.init_std_mean(dataset_x, (0, 2), (1, len(self.input_meta_data["feature_cols"]), 1), "x")
+        self.meta_data = get_meta_data().copy()
+        self.meta_data["imu_idx"] = np.concatenate((self.meta_data["imu_idx"], self.meta_data["imu_idx"] + self.meta_data["n_features"]))
+        self.meta_data["tof_idx"] = np.concatenate((self.meta_data["tof_idx"], self.meta_data["tof_idx"] + self.meta_data["n_features"]))
+        self.meta_data["thm_idx"] = np.concatenate((self.meta_data["thm_idx"], self.meta_data["thm_idx"] + self.meta_data["n_features"]))
+        if dataset_x is not None:
+            self.compute_x_std_and_mean(dataset_x)
+        else:
+            x_stats_size = (1, len(self.meta_data["feature_cols"]), 1)
+            self.register_buffer("x_mean", torch.empty(x_stats_size))
+            self.register_buffer("x_std", torch.empty(x_stats_size))
         self.init_std_mean(reg_demos_dataset_y, 0, (1, len(REGRES_DEMOS_TARGETS)), "reg_demos_y")
         self.imu_branch = nn.Sequential(
-            ResidualBlock(len(self.input_meta_data["imu_idx"]), 219, imu_dropout_ratio),
+            ResidualBlock(len(self.meta_data["imu_idx"]), 219, imu_dropout_ratio),
             ResidualBlock(219, 500, imu_dropout_ratio),
         )
-        self.tof_branch = AlexNet([len(self.input_meta_data["tof_idx"]), 82, 500], tof_dropout_ratio)
-        self.thm_branch = AlexNet([len(self.input_meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
+        self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 82, 500], tof_dropout_ratio)
+        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
         self.main_head = MLPhead(mlp_width, 18)
-        self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_orient_classes"])
+        self.aux_orientation_head = MLPhead(mlp_width, self.meta_data["n_orient_classes"])
         self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
         self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
-    
+
+    def compute_x_std_and_mean(self, dataset_x: Tensor):
+        x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
+        x_std = dataset_x.std(dim=(0, 2), keepdim=True)
+        diff_means = []
+        diff_stds = []
+        for chan_idx in range(dataset_x.shape[CHANNELS_DIMENSION]):
+            diff = dataset_x[:, [chan_idx], 1:] - dataset_x[:, [chan_idx], :-1]
+            diff_means.append(diff.mean(dim=(0, 2), keepdim=True))
+            diff_stds.append(diff.std(dim=(0, 2), keepdim=True))
+        diff_means = torch.concatenate(diff_means, dim=CHANNELS_DIMENSION)
+        x_mean = torch.concatenate((x_mean, diff_means), dim=CHANNELS_DIMENSION)
+        diff_stds = torch.concatenate(diff_stds, dim=CHANNELS_DIMENSION)
+        x_std = torch.concatenate((x_std, diff_stds), dim=CHANNELS_DIMENSION)
+        self.register_buffer("x_mean", x_mean)
+        self.register_buffer("x_std", x_std)
+
     def init_std_mean(self, data:Optional[Tensor], stats_dim:int|tuple, stats_shape:tuple[int], preffix:str):
         if data is not None:
             mean = data.mean(dim=stats_dim, keepdim=True)
@@ -125,15 +149,21 @@ class CMIHARModule(nn.Module):
         else:
             self.register_buffer(preffix + "_mean", torch.empty_like(stats_shape))
             self.register_buffer(preffix + "_std", torch.empty_like(stats_shape))
-    
+
     def forward(self, x:Tensor) -> Tensor:
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
+        x = torch.concatenate((
+            x, 
+            nn.functional.pad(x[..., 1:] - x[..., :-1], (0, 1))
+            ),
+            dim=CHANNELS_DIMENSION,
+        )
         x = (x - self.x_mean) / self.x_std
         concatenated_activation_maps = torch.cat(
             (
-                self.imu_branch(x[:, self.input_meta_data["imu_idx"]]),
-                self.thm_branch(x[:, self.input_meta_data["thm_idx"]]),
-                self.tof_branch(x[:, self.input_meta_data["tof_idx"]]),
+                self.imu_branch(x[:, self.meta_data["imu_idx"]]),
+                self.thm_branch(x[:, self.meta_data["thm_idx"]]),
+                self.tof_branch(x[:, self.meta_data["tof_idx"]]),
             ),
             dim=CHANNELS_DIMENSION,
         )
