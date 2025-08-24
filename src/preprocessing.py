@@ -259,7 +259,7 @@ def preprocess_competitino_dataset() -> DF:
         .pipe(add_quat_angle_mag)
         .pipe(one_hot_encode_targets)
         .pipe(agg_tof_cols_per_sensor)
-        .pipe(add_diff_features)
+        # .pipe(add_diff_features)
     )
 
 def save_sequence_meta_data(df:DF) -> DF:
