@@ -515,7 +515,7 @@ if __name__ == "__main__":
         training_kw={
             'orient_loss_weight': 1.0,
             'bin_demos_weight': 0.6000000000000001,
-            'reg_demos_weight': 0.6000000000000001,
+            'reg_demos_weight': 0.0,
         },
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
