@@ -306,6 +306,7 @@ def get_sensor_indices(sensor_prefix: str, meta_data: dict) -> list[int]:
 
 def save_df_meta_data(df:DF):
     meta_data = {
+        "n_features": len(get_feature_cols(df)),
         "mean": df[get_feature_cols(df)].mean().astype("float32").to_dict(),
         "std": df[get_feature_cols(df)].std().astype("float32").to_dict(),
         "pad_seq_len": get_normed_seq_len(df),
@@ -339,6 +340,10 @@ def get_meta_data() -> dict:
     )
     with open(meta_data_path, "r") as fp:
         meta_data = json.load(fp)
+    
+    meta_data["imu_idx"] = np.asarray(meta_data["imu_idx"])
+    meta_data["tof_idx"] = np.asarray(meta_data["tof_idx"])
+    meta_data["thm_idx"] = np.asarray(meta_data["thm_idx"])
 
     return meta_data
 

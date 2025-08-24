@@ -100,24 +100,27 @@ class CMIHARModule(nn.Module):
         ):
         super().__init__()
         get_meta_data
-        self.input_meta_data = get_meta_data()
+        self.meta_data = get_meta_data().copy()
+        self.meta_data["imu_idx"] = np.concatenate((self.meta_data["imu_idx"], self.meta_data["imu_idx"] + self.meta_data["n_features"]))
+        self.meta_data["tof_idx"] = np.concatenate((self.meta_data["tof_idx"], self.meta_data["tof_idx"] + self.meta_data["n_features"]))
+        self.meta_data["thm_idx"] = np.concatenate((self.meta_data["thm_idx"], self.meta_data["thm_idx"] + self.meta_data["n_features"]))
         if dataset_x is not None:
             self.compute_x_std_and_mean(dataset_x)
         else:
-            x_stats_size = (1, len(self.input_meta_data["feature_cols"]) * 2, 1)
+            x_stats_size = (1, len(self.meta_data["feature_cols"]), 1)
             self.register_buffer("x_mean", torch.empty(x_stats_size))
             self.register_buffer("x_std", torch.empty(x_stats_size))
         self.init_std_mean(reg_demos_dataset_y, 0, (1, len(REGRES_DEMOS_TARGETS)), "reg_demos_y")
         self.imu_branch = nn.Sequential(
-            ResidualBlock(len(self.input_meta_data["imu_idx"]), 219, imu_dropout_ratio),
+            ResidualBlock(len(self.meta_data["imu_idx"]), 219, imu_dropout_ratio),
             ResidualBlock(219, 500, imu_dropout_ratio),
         )
-        self.tof_branch = AlexNet([len(self.input_meta_data["tof_idx"]), 82, 500], tof_dropout_ratio)
-        self.thm_branch = AlexNet([len(self.input_meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
+        self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 82, 500], tof_dropout_ratio)
+        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
         self.main_head = MLPhead(mlp_width, 18)
-        self.aux_orientation_head = MLPhead(mlp_width, self.input_meta_data["n_orient_classes"])
+        self.aux_orientation_head = MLPhead(mlp_width, self.meta_data["n_orient_classes"])
         self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
         self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
 
@@ -158,9 +161,9 @@ class CMIHARModule(nn.Module):
         x = (x - self.x_mean) / self.x_std
         concatenated_activation_maps = torch.cat(
             (
-                self.imu_branch(x[:, self.input_meta_data["imu_idx"]]),
-                self.thm_branch(x[:, self.input_meta_data["thm_idx"]]),
-                self.tof_branch(x[:, self.input_meta_data["tof_idx"]]),
+                self.imu_branch(x[:, self.meta_data["imu_idx"]]),
+                self.thm_branch(x[:, self.meta_data["thm_idx"]]),
+                self.tof_branch(x[:, self.meta_data["tof_idx"]]),
             ),
             dim=CHANNELS_DIMENSION,
         )

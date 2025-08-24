@@ -152,13 +152,15 @@ def train_model_on_single_epoch(
     model.train()
     train_metrics["train_loss"] = 0.0
     total = 0
+    tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
+    
     for batch_x, batch_y, batch_orientation_y, bin_demos_y, reg_demos_y, idx in train_loader:
         batch_orientation_y = batch_orientation_y.clone()
         batch_x = batch_x.to(device).clone()
         add_noise = torch.randn_like(batch_x, device=device) * 0.04
         scale_noise = torch.rand_like(batch_x, device=device) * (1.1 - 0.9) + 0.9
         batch_x = (add_noise + batch_x) * scale_noise
-        batch_x[:TRAIN_BATCH_SIZE // 2, meta_data["tof_idx"] + meta_data["thm_idx"]] = 0.0
+        batch_x[:TRAIN_BATCH_SIZE // 2, tof_and_thm_idx] = 0.0
         batch_y = batch_y.to(device)
         batch_x = batch_x.float()
         
@@ -195,12 +197,13 @@ def evaluate_model(
     total = 0
     all_true = []
     all_pred = []
+    tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
 
     with torch.no_grad():
         for batch_x, batch_y, *_ in validation_loader:
             batch_x = batch_x.to(device).clone()
             batch_y = batch_y.to(device)
-            batch_x[:VALIDATION_BATCH_SIZE // 2, meta_data["tof_idx"] + meta_data["thm_idx"]] = 0.0
+            batch_x[:VALIDATION_BATCH_SIZE // 2, tof_and_thm_idx] = 0.0
 
             outputs, *_ = model(batch_x)
             loss = criterion(outputs, batch_y)
