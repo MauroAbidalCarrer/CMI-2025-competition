@@ -291,8 +291,12 @@ def save_sequence_meta_data(df:DF) -> DF:
         pd.get_dummies(seq_meta_data["orientation"], dtype="float32").values,
     )
     np.save(
-        "preprocessed_dataset/demographics_Y.npy",
-        seq_meta_data[["sex", "handedness"]].values.astype("float32"),
+        "preprocessed_dataset/binary_demographics_Y.npy",
+        seq_meta_data[BINARY_DEMOS_TARGETS].values.astype("float32"),
+    )
+    np.save(
+        "preprocessed_dataset/regres_demographics_Y.npy",
+        seq_meta_data[REGRES_DEMOS_TARGETS].values.astype("float32"),
     )
 
 # Convert target names into a ndarray to index it batchwise.
@@ -306,7 +310,7 @@ def save_df_meta_data(df:DF):
         "std": df[get_feature_cols(df)].std().astype("float32").to_dict(),
         "pad_seq_len": get_normed_seq_len(df),
         "feature_cols": get_feature_cols(df),
-        "n_aux_classes": df["orientation"].nunique(),
+        "n_orient_classes": df["orientation"].nunique(),
     }
     meta_data["tof_idx"] = get_sensor_indices("tof", meta_data)
     meta_data["thm_idx"] = get_sensor_indices("thm", meta_data)
