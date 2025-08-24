@@ -119,23 +119,21 @@ def mk_scheduler(optimizer:Optimizer, steps_per_epoch:int, lr_scheduler_kw:dict)
     ) 
 
 def mixup_data(
-        x:Tensor,
-        y:Tensor,
-        aux_y:Tensor,
+        *tensors:list[Tensor],
         alpha=0.2
     ) -> tuple[Tensor, Tensor] | tuple[Tensor, Tensor, Tensor]:
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1.0
-    batch_size = x.size(0)
-    index = torch.randperm(batch_size).to(x.device)
 
-    mixed_x = lam * x + (1 - lam) * x[index, :]
-    mixed_y = lam * y + (1 - lam) * y[index, :]
-    mixed_aux_y = lam * aux_y + (1 - lam) * aux_y[index, :]
+    mix_idx = torch.randperm(TRAIN_BATCH_SIZE).to(tensors[0].device)
 
-    return mixed_x, mixed_y, mixed_aux_y
+    def mix_tensor(tensor: Tensor) -> Tensor:
+        tensor[mix_idx] = lam * tensor[mix_idx] + (1 - lam) * tensor[mix_idx]
+        return tensor
+    
+    return list(map(mix_tensor, tensors))
 
 def train_model_on_single_epoch(
         meta_data:dict,
@@ -164,7 +162,13 @@ def train_model_on_single_epoch(
         batch_y = batch_y.to(device)
         batch_x = batch_x.float()
         
-        batch_x, batch_y, batch_orientation_y = mixup_data(batch_x, batch_y, batch_orientation_y)
+        batch_x, batch_y, batch_orientation_y,bin_demos_y, reg_demos_y = mixup_data(
+            batch_x,
+            batch_y,
+            batch_orientation_y,
+            bin_demos_y,
+            reg_demos_y,
+        )
 
         optimizer.zero_grad()
         outputs, orient_output, bin_demos_output, reg_demos_output = model(batch_x)
