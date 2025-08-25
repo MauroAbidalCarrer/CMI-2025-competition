@@ -527,13 +527,14 @@ if __name__ == "__main__":
             # 'reg_demos_weight': 0.0,
             "sex_loss_weight": 0.6,
             "handedness_loss_weight": 0.6,
-            "adult_child_loss_weight": 0,
+            "arm_length_ratio": 0,
             "age_loss_weight": 0,
             "height_cm_loss_weight": 0,
-            "shoulder_to_wrist_cm_loss_weight": 0,
-            "elbow_to_wrist_cm_loss_weight": 0,
+            "elbow_to_wrist_ratio": 0,
+            "shoulder_to_elbow_ratio": 0,
         },
     )
+
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
     user_input = input("Upload model ensemble?").lower()
