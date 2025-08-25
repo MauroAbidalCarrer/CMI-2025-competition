@@ -179,9 +179,11 @@ def train_model_on_single_epoch(
             #    + nn.functional.mse_loss(reg_demos_output, reg_demos_y) * training_kw["reg_demos_weight"] \
         for binary_target_idx, binary_target in enumerate(BINARY_DEMOS_TARGETS):
             bce_loss = bce(bin_demos_output[:, [binary_target_idx]], bin_demos_y[:, [binary_target_idx]])
+            print(binary_target, "loss:", bce_loss.item())
             loss += bce_loss * training_kw[binary_target + "_loss_weight"]
-        for binary_target_idx, binary_target in enumerate(BINARY_DEMOS_TARGETS):
-            bce_loss = nn.functional.mse_loss(bin_demos_output[:, [binary_target_idx]], bin_demos_y[:, [binary_target_idx]])
+        for reg_target_idx in enumerate(REGRES_DEMOS_TARGETS):
+            print(reg_target_idx, "loss:", bce_loss.item())
+            bce_loss = nn.functional.mse_loss(reg_demos_output[:, [reg_target_idx]], reg_demos_y[:, [reg_target_idx]])
             loss += bce_loss * training_kw[binary_target + "_loss_weight"]
         
         loss.backward()
@@ -409,10 +411,10 @@ def train_on_single_fold(
     seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
 def sgkf_from_tensor_dataset(
-    # dataset: TensorDataset,
-    n_splits: int = 5,
-    shuffle: bool = True,
-) -> Iterator[tuple[int, int, int]]:
+        # dataset: TensorDataset,
+        n_splits: int = 5,
+        shuffle: bool = True,
+    ) -> Iterator[tuple[int, int, int]]:
     """Returns iterator of tuple of train and val indices and seed."""
     # Load sequence meta data to get classes and groups parameters
     seq_meta = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
