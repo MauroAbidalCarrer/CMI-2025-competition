@@ -174,10 +174,16 @@ def train_model_on_single_epoch(
         outputs, orient_output, bin_demos_output, reg_demos_output = model(batch_x)
         bce = nn.BCEWithLogitsLoss()
         loss = criterion(outputs, batch_y)  \
-               + bce(bin_demos_output, bin_demos_y) * training_kw["bin_demos_weight"] \
                + criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] \
-               + nn.functional.mse_loss(reg_demos_output, reg_demos_y) * training_kw["reg_demos_weight"] \
-            
+            #    + bce(bin_demos_output, bin_demos_y) * training_kw["bin_demos_weight"] \
+            #    + nn.functional.mse_loss(reg_demos_output, reg_demos_y) * training_kw["reg_demos_weight"] \
+        for binary_target_idx, binary_target in enumerate(BINARY_DEMOS_TARGETS):
+            bce_loss = bce(bin_demos_output[:, [binary_target_idx]], bin_demos_y[:, [binary_target_idx]])
+            loss += bce_loss * training_kw[binary_target + "_loss_weight"]
+        for binary_target_idx, binary_target in enumerate(BINARY_DEMOS_TARGETS):
+            bce_loss = nn.functional.mse_loss(bin_demos_output[:, [binary_target_idx]], bin_demos_y[:, [binary_target_idx]])
+            loss += bce_loss * training_kw[binary_target + "_loss_weight"]
+        
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -505,6 +511,8 @@ def train_on_all_folds(
 
 if __name__ == "__main__":
     seed_everything(SEED)
+    BINARY_DEMOS_TARGETS = ["sex", "handedness", "adult_child", "age", "height_cm", "shoulder_to_wrist_cm", "elbow_to_wrist_cm"]
+
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         lr_scheduler_kw={
             'warmup_epochs': 14,
@@ -521,8 +529,15 @@ if __name__ == "__main__":
         },
         training_kw={
             'orient_loss_weight': 1.0,
-            'bin_demos_weight': 0.6000000000000001,
-            'reg_demos_weight': 0.0,
+            # 'bin_demos_weight': 0.6000000000000001,
+            # 'reg_demos_weight': 0.0,
+            "sex_loss_weight": 0.6,
+            "handedness_loss_weight": 0.6,
+            "adult_child_loss_weight": 0,
+            "age_loss_weight": 0,
+            "height_cm_loss_weight": 0,
+            "shoulder_to_wrist_cm_loss_weight": 0,
+            "elbow_to_wrist_cm_loss_weight": 0,
         },
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
