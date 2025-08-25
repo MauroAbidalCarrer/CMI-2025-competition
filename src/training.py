@@ -504,9 +504,6 @@ def train_on_all_folds(
         .mean()
     )
     print(f"done in {end_time - start_time:.2f}s, mean score:", mean_val_score)
-    print("all epochs metrics:")
-    print(epoch_metrics)
-    print("")
     return mean_val_score, epoch_metrics, seq_metrics
 
 if __name__ == "__main__":
