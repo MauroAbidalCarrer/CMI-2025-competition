@@ -151,7 +151,7 @@ def train_model_on_single_epoch(
     train_metrics["train_loss"] = 0.0
     total = 0
     tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
-    
+
     for batch_x, batch_y, batch_orientation_y, bin_demos_y, reg_demos_y, idx in train_loader:
         batch_orientation_y = batch_orientation_y.clone()
         batch_x = batch_x.to(device).clone()
@@ -173,17 +173,12 @@ def train_model_on_single_epoch(
         optimizer.zero_grad()
         outputs, orient_output, bin_demos_output, reg_demos_output = model(batch_x)
         bce = nn.BCEWithLogitsLoss()
-        loss = criterion(outputs, batch_y)  \
-               + criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] \
-            #    + bce(bin_demos_output, bin_demos_y) * training_kw["bin_demos_weight"] \
-            #    + nn.functional.mse_loss(reg_demos_output, reg_demos_y) * training_kw["reg_demos_weight"] \
+        loss = criterion(outputs, batch_y) + criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] 
         for binary_target_idx, binary_target in enumerate(BINARY_DEMOS_TARGETS):
             bce_loss = bce(bin_demos_output[:, [binary_target_idx]], bin_demos_y[:, [binary_target_idx]])
-            print(binary_target, "loss:", bce_loss.item())
             loss += bce_loss * training_kw[binary_target + "_loss_weight"]
-        for reg_target_idx in enumerate(REGRES_DEMOS_TARGETS):
-            print(reg_target_idx, "loss:", bce_loss.item())
-            bce_loss = nn.functional.mse_loss(reg_demos_output[:, [reg_target_idx]], reg_demos_y[:, [reg_target_idx]])
+        for reg_target_idx, reg_target in enumerate(REGRES_DEMOS_TARGETS):
+            mse_loss = nn.functional.mse_loss(reg_demos_output[:, [reg_target_idx]], reg_demos_y[:, [reg_target_idx]])
             loss += bce_loss * training_kw[binary_target + "_loss_weight"]
         
         loss.backward()
