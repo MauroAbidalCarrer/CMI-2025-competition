@@ -70,7 +70,13 @@ def objective(trial: optuna.trial.Trial) -> float:
             # "height_cm_loss_weight": trial.suggest_float("height_cm_loss_weight", 0, 0.75, step=0.25),
             # "shoulder_to_wrist_cm_loss_weight": trial.suggest_float("shoulder_to_wrist_cm_loss_weight", 0, 0.75, step=0.25),
             # "elbow_to_wrist_cm_loss_weight": trial.suggest_float("elbow_to_wrist_cm_loss_weight", 0, 0.75, step=0.25),
-            **{target + "_loss_weight": trial.suggest_float(target + "loss_weight", 0, 0.75, step=0.25) for target in BINARY_DEMOS_TARGETS + REGRES_DEMOS_TARGETS}
+            # **{target + "_loss_weight": trial.suggest_float(target + "_loss_weight", 0, 0.75, step=0.25) for target in BINARY_DEMOS_TARGETS + REGRES_DEMOS_TARGETS}
+            "height_cm_loss_weight": 0,
+            "sex_loss_weight": trial.suggest_float("sex_loss_weight", 0, 0.6, step=0.2),
+            "handedness_loss_weight": trial.suggest_float("handedness_loss_weight", 0, 0.6, step=0.2),
+            "arm_length_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.2),
+            "elbow_to_wrist_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.2),
+            "shoulder_to_elbow_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.2),
         },
         trial=trial,
     )[0]
