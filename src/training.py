@@ -324,7 +324,7 @@ def train_model_on_all_epochs(
         tuple[DF, DF]: epoch wise metrics, sample(sequence) wise meta data metrics
     """
     meta_data = get_meta_data()
-    train_loader = DL(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, drop_last=False)
+    train_loader = DL(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, drop_last=True)
     validation_loader = DL(validation_dataset, VALIDATION_BATCH_SIZE, shuffle=False, drop_last=False)
 
     metrics:list[dict] = []
