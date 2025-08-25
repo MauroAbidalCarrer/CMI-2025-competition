@@ -83,7 +83,7 @@ def objective(trial: optuna.trial.Trial) -> float:
 
 if __name__ == "__main__":
     study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
-    study.optimize(objective, n_trials=100, timeout=60 * 60 * 3)
+    study.optimize(objective, n_trials=100, timeout=60 * 60 * 8)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
