@@ -1,3 +1,4 @@
+hp_tune_logs.txt
 settings.json
 *.npy
 *.parquet
