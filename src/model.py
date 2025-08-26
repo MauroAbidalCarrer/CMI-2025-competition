@@ -107,7 +107,7 @@ class CMIHARModule(nn.Module):
         if dataset_x is not None:
             self.compute_x_std_and_mean(dataset_x)
         else:
-            x_stats_size = (1, len(self.meta_data["feature_cols"]), 1)
+            x_stats_size = (1, len(self.meta_data["feature_cols"]) * 2, 1)
             self.register_buffer("x_mean", torch.empty(x_stats_size))
             self.register_buffer("x_std", torch.empty(x_stats_size))
         self.init_std_mean(reg_demos_dataset_y, 0, (1, len(REGRES_DEMOS_TARGETS)), "reg_demos_y")
