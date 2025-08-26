@@ -179,8 +179,8 @@ def train_model_on_single_epoch(
             loss += bce_loss * training_kw[binary_target + "_loss_weight"]
         for reg_target_idx, reg_target in enumerate(REGRES_DEMOS_TARGETS):
             mse_loss = nn.functional.mse_loss(reg_demos_output[:, [reg_target_idx]], reg_demos_y[:, [reg_target_idx]])
-            loss += bce_loss * training_kw[binary_target + "_loss_weight"]
-        
+            loss += mse_loss * training_kw[reg_target + "_loss_weight"]
+
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -527,17 +527,17 @@ if __name__ == "__main__":
             # 'reg_demos_weight': 0.0,
             "sex_loss_weight": 0.6,
             "handedness_loss_weight": 0.6,
-            "arm_length_ratio": 0,
+            "arm_length_ratio_loss_weight": 0,
             "age_loss_weight": 0,
             "height_cm_loss_weight": 0,
-            "elbow_to_wrist_ratio": 0,
-            "shoulder_to_elbow_ratio": 0,
+            "elbow_to_wrist_ratio_loss_weight": 0,
+            "shoulder_to_elbow_ratio_loss_weight": 0,
         },
     )
 
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
-    user_input = input("Upload model ensemble?").lower()
+    user_input = input("Upload model ensemble?: ").lower()
     if user_input == "yes":
         kagglehub.model_upload(
             handle=join(
@@ -547,7 +547,7 @@ if __name__ == "__main__":
                 MODEL_VARIATION,
             ),
             local_model_dir="models",
-            version_notes=input("Please provide model version notes:")
+            version_notes=input("Please provide model version notes: ")
         )
     elif user_input == "no":
         print("Model has not been uploaded to kaggle.")
