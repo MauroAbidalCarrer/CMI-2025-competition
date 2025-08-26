@@ -147,8 +147,8 @@ class CMIHARModule(nn.Module):
             self.register_buffer(preffix + "_mean", mean)
             self.register_buffer(preffix + "_std", std)
         else:
-            self.register_buffer(preffix + "_mean", torch.empty_like(stats_shape))
-            self.register_buffer(preffix + "_std", torch.empty_like(stats_shape))
+            self.register_buffer(preffix + "_mean", torch.empty(stats_shape))
+            self.register_buffer(preffix + "_std", torch.empty(stats_shape))
 
     def forward(self, x:Tensor) -> Tensor:
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
