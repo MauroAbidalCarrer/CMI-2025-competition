@@ -523,15 +523,14 @@ if __name__ == "__main__":
         },
         training_kw={
             'orient_loss_weight': 1.0,
-            # 'bin_demos_weight': 0.6000000000000001,
-            # 'reg_demos_weight': 0.0,
             "sex_loss_weight": 0.6,
-            "handedness_loss_weight": 0.6,
-            "arm_length_ratio_loss_weight": 0,
+            "handedness_loss_weight": 0.5,
+            "arm_length_ratio_loss_weight": 0.6,
+            "elbow_to_wrist_ratio_loss_weight": 0.6,
+            "shoulder_to_elbow_ratio_loss_weight": 0.6,
+            
+            "height_cm_loss_weight": 0.0,
             "age_loss_weight": 0,
-            "height_cm_loss_weight": 0,
-            "elbow_to_wrist_ratio_loss_weight": 0,
-            "shoulder_to_elbow_ratio_loss_weight": 0,
         },
     )
 
