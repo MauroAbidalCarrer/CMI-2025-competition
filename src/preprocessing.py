@@ -232,17 +232,6 @@ def get_normed_seq_len(dataset:DF) -> int:
         .quantile(SEQUENCE_NORMED_LEN_QUANTILE)
     )
 
-def fold_dfs_to_ndarrays(train:DF, validation:DF, dataset_normed_seq_len:int, seq_pad_trunc_mode:str) -> tuple[ndarray, ndarray, ndarray, ndarray]:
-    """
-    Returns:
-        (train X, train Y, validation X, validation Y)
-    """
-    # full_dataset_normed_seq_len = get_normed_seq_len(df)
-    return (
-        *df_to_ndarrays(train, dataset_normed_seq_len, seq_pad_trunc_mode),
-        *df_to_ndarrays(validation, dataset_normed_seq_len, seq_pad_trunc_mode),
-    )
-
 def preprocess_competition_dataset() -> DF:
     csv_path = kagglehub.competition_download(COMPETITION_HANDLE, path="train.csv")
     return (
