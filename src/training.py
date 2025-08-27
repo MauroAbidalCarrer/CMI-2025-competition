@@ -147,7 +147,7 @@ def train_model_on_single_epoch(
     ) -> dict:
     "Train model on a single epoch"
     train_metrics = {}
-    model.train()
+    model = model.train()
     train_metrics["train_loss"] = 0.0
     total = 0
     tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
@@ -198,7 +198,7 @@ def evaluate_model(
         criterion:callable,
         device:torch.device
     ) -> dict:
-    model.eval()
+    model = model.eval()
     eval_metrics = {}
     eval_metrics["val_loss"] = 0.0
     total = 0
