@@ -406,7 +406,6 @@ def train_on_single_fold(
     seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
 def sgkf_from_tensor_dataset(
-        # dataset: TensorDataset,
         n_splits: int = 5,
         shuffle: bool = True,
     ) -> Iterator[tuple[int, int, int]]:
