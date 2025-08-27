@@ -536,19 +536,19 @@ if __name__ == "__main__":
 
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
-    user_input = input("Upload model ensemble?: ").lower()
-    if user_input == "yes":
-        kagglehub.model_upload(
-            handle=join(
-                kagglehub.whoami()["username"],
-                MODEL_NAME,
-                "pyTorch",
-                MODEL_VARIATION,
-            ),
-            local_model_dir="models",
-            version_notes=input("Please provide model version notes: ")
-        )
-    elif user_input == "no":
-        print("Model has not been uploaded to kaggle.")
-    else:
-        print("User input was not understood, model has not been uploaded to kaggle.")
+    # user_input = input("Upload model ensemble?: ").lower()
+    # if user_input == "yes":
+    #     kagglehub.model_upload(
+    #         handle=join(
+    #             kagglehub.whoami()["username"],
+    #             MODEL_NAME,
+    #             "pyTorch",
+    #             MODEL_VARIATION,
+    #         ),
+    #         local_model_dir="models",
+    #         version_notes=input("Please provide model version notes: ")
+    #     )
+    # elif user_input == "no":
+    #     print("Model has not been uploaded to kaggle.")
+    # else:
+    #     print("User input was not understood, model has not been uploaded to kaggle.")
