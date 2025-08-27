@@ -1,0 +1,317 @@
+nohup: ignoring input
+[I 2025-08-25 16:19:10,416] A new study created in memory with name: no-name-e756cdb4-394f-415f-aeaa-56853cdd488c
+fold 0 stopped at 26 score: 0.8024548348634168
+fold 3 stopped at 30 score: 0.7976161331426682
+fold 2 stopped at 30 score: 0.770439812141078
+fold 5 stopped at 35 score: 0.7529846426755569
+fold 4 stopped at 35 score: 0.7837001925045459
+fold 1 stopped at 35 score: 0.7948015575504512
+done in 107.68s, mean score: final_metric    0.791008
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:21:02,861] Trial 0 finished with value: 0.7910076788675972 and parameters: {'sex_loss_weight': 0.4, 'handedness_loss_weight': 0.4, 'limbs_length_loss_weight': 0.0}. Best is trial 0 with value: 0.7910076788675972.
+fold 3 stopped at 26 score: 0.7944555769847765
+fold 5 stopped at 29 score: 0.7507023449928893
+fold 4 stopped at 30 score: 0.7783328275660902
+fold 0 stopped at 32 score: 0.8080602362853242
+fold 2 stopped at 35 score: 0.7748261881993528
+fold 1 stopped at 35 score: 0.7874324237757726
+done in 105.02s, mean score: final_metric    0.785921
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:22:52,630] Trial 1 finished with value: 0.785921287497305 and parameters: {'sex_loss_weight': 0.0, 'handedness_loss_weight': 0.6, 'limbs_length_loss_weight': 0.0}. Best is trial 0 with value: 0.7910076788675972.
+fold 5 stopped at 30 score: 0.7586292785518833
+fold 0 stopped at 30 score: 0.8006045717486433
+fold 4 stopped at 30 score: 0.7895258072171766
+fold 3 stopped at 35 score: 0.7959252164767918
+fold 2 stopped at 35 score: 0.7738440883338831
+fold 1 stopped at 35 score: 0.7990794989047212
+done in 105.39s, mean score: final_metric    0.790346
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:24:42,720] Trial 2 finished with value: 0.7903460219621353 and parameters: {'sex_loss_weight': 0.0, 'handedness_loss_weight': 0.4, 'limbs_length_loss_weight': 0.2}. Best is trial 0 with value: 0.7910076788675972.
+fold 0 stopped at 26 score: 0.8081442916397626
+fold 4 stopped at 29 score: 0.7925403217274085
+fold 2 stopped at 30 score: 0.7713861247266602
+fold 3 stopped at 30 score: 0.7908100053289329
+fold 5 stopped at 35 score: 0.7664088483412688
+fold 1 stopped at 35 score: 0.792223417072275
+done in 105.04s, mean score: final_metric    0.791336
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:26:32,501] Trial 3 finished with value: 0.7913362351890321 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.0, 'limbs_length_loss_weight': 0.2}. Best is trial 3 with value: 0.7913362351890321.
+fold 0 stopped at 30 score: 0.8062647095968389
+fold 5 stopped at 30 score: 0.7619175589974388
+fold 3 stopped at 33 score: 0.7917463421405253
+fold 1 stopped at 33 score: 0.7885944435219853
+fold 2 stopped at 35 score: 0.7747775902965147
+fold 4 stopped at 35 score: 0.7901089422141072
+done in 104.82s, mean score: final_metric    0.788796
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:28:22,060] Trial 4 finished with value: 0.7887956460107303 and parameters: {'sex_loss_weight': 0.4, 'handedness_loss_weight': 0.6, 'limbs_length_loss_weight': 0.6}. Best is trial 3 with value: 0.7913362351890321.
+fold 1 stopped at 26 score: 0.7855478158351161
+fold 3 stopped at 26 score: 0.7980705644516515
+fold 0 stopped at 30 score: 0.7973041563226623
+fold 4 stopped at 30 score: 0.7886904498985774
+fold 5 stopped at 35 score: 0.7499332893939763
+fold 2 stopped at 35 score: 0.7742216517846146
+done in 105.25s, mean score: final_metric    0.788741
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:30:12,032] Trial 5 finished with value: 0.7887405890929052 and parameters: {'sex_loss_weight': 0.4, 'handedness_loss_weight': 0.0, 'limbs_length_loss_weight': 0.0}. Best is trial 3 with value: 0.7913362351890321.
+fold 0 stopped at 26 score: 0.8024548348634168
+fold 2 stopped at 30 score: 0.770439812141078
+fold 3 stopped at 30 score: 0.7976161331426682
+fold 5 stopped at 35 score: 0.7529846426755569
+fold 1 stopped at 35 score: 0.7948015575504512
+fold 4 stopped at 35 score: 0.7837001925045459
+done in 106.14s, mean score: final_metric    0.791008
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:32:02,914] Trial 6 finished with value: 0.7910076788675972 and parameters: {'sex_loss_weight': 0.4, 'handedness_loss_weight': 0.4, 'limbs_length_loss_weight': 0.4}. Best is trial 3 with value: 0.7913362351890321.
+fold 3 stopped at 26 score: 0.7938125399179069
+fold 2 stopped at 26 score: 0.7783072465882552
+fold 0 stopped at 30 score: 0.8126617399832123
+fold 5 stopped at 35 score: 0.7612448289969103
+fold 1 stopped at 35 score: 0.7927818905995097
+fold 4 stopped at 35 score: 0.7897539979992116
+done in 105.66s, mean score: final_metric    0.792313
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:33:53,263] Trial 7 finished with value: 0.7923126012065701 and parameters: {'sex_loss_weight': 0.0, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.0}. Best is trial 7 with value: 0.7923126012065701.
+fold 0 stopped at 30 score: 0.806729809981285
+fold 3 stopped at 30 score: 0.7910599494909218
+fold 2 stopped at 34 score: 0.7665647123288428
+fold 5 stopped at 35 score: 0.7633486034974103
+fold 1 stopped at 35 score: 0.7992398144183013
+fold 4 stopped at 35 score: 0.7877199345542731
+done in 106.58s, mean score: final_metric    0.78879
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:35:44,605] Trial 8 finished with value: 0.7887903222793518 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.6, 'limbs_length_loss_weight': 0.2}. Best is trial 7 with value: 0.7923126012065701.
+fold 3 stopped at 26 score: 0.7866662913796245
+fold 5 stopped at 26 score: 0.7503735543106016
+fold 1 stopped at 26 score: 0.7805836143190625
+fold 4 stopped at 30 score: 0.7824470880532
+fold 0 stopped at 31 score: 0.799994688711174
+fold 2 stopped at 35 score: 0.7680607491624458
+done in 104.22s, mean score: final_metric    0.786052
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:37:33,869] Trial 9 finished with value: 0.7860516898963019 and parameters: {'sex_loss_weight': 0.6, 'handedness_loss_weight': 0.0, 'limbs_length_loss_weight': 0.6}. Best is trial 7 with value: 0.7923126012065701.
+fold 3 stopped at 26 score: 0.7938125399179069
+fold 2 stopped at 26 score: 0.7783072465882552
+fold 0 stopped at 30 score: 0.8126617399832123
+fold 5 stopped at 35 score: 0.7612448289969103
+fold 1 stopped at 35 score: 0.7927818905995097
+fold 4 stopped at 35 score: 0.7897539979992116
+done in 105.75s, mean score: final_metric    0.792313
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:39:24,308] Trial 10 finished with value: 0.7923126012065701 and parameters: {'sex_loss_weight': 0.0, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.4}. Best is trial 7 with value: 0.7923126012065701.
+fold 2 stopped at 26 score: 0.7783072465882552
+fold 3 stopped at 26 score: 0.7938125399179069
+fold 0 stopped at 30 score: 0.8126617399832123
+fold 1 stopped at 35 score: 0.7927818905995097
+fold 5 stopped at 35 score: 0.7612448289969103
+fold 4 stopped at 35 score: 0.7897539979992116
+done in 105.43s, mean score: final_metric    0.792313
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:41:14,500] Trial 11 finished with value: 0.7923126012065701 and parameters: {'sex_loss_weight': 0.0, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.4}. Best is trial 7 with value: 0.7923126012065701.
+fold 2 stopped at 26 score: 0.7783072465882552
+fold 3 stopped at 26 score: 0.7938125399179069
+fold 0 stopped at 30 score: 0.8126617399832123
+fold 4 stopped at 35 score: 0.7897539979992116
+fold 5 stopped at 35 score: 0.7612448289969103
+fold 1 stopped at 35 score: 0.7927818905995097
+done in 106.20s, mean score: final_metric    0.792313
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:43:05,395] Trial 12 finished with value: 0.7923126012065701 and parameters: {'sex_loss_weight': 0.0, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.4}. Best is trial 7 with value: 0.7923126012065701.
+fold 0 stopped at 26 score: 0.8104086336743088
+fold 1 stopped at 35 score: 0.79456477090986
+fold 3 stopped at 35 score: 0.7986063277053648
+fold 5 stopped at 35 score: 0.756459786650459
+fold 4 stopped at 35 score: 0.7901875125809397
+fold 2 stopped at 35 score: 0.782666517196607
+done in 105.73s, mean score: final_metric    0.793039
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:44:55,833] Trial 13 finished with value: 0.7930391930551096 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.4}. Best is trial 13 with value: 0.7930391930551096.
+fold 0 stopped at 26 score: 0.8104086336743088
+fold 3 stopped at 35 score: 0.7986063277053648
+fold 4 stopped at 35 score: 0.7901875125809397
+fold 5 stopped at 35 score: 0.756459786650459
+fold 2 stopped at 35 score: 0.782666517196607
+fold 1 stopped at 35 score: 0.79456477090986
+done in 105.71s, mean score: final_metric    0.793039
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:46:46,237] Trial 14 finished with value: 0.7930391930551096 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.2}. Best is trial 13 with value: 0.7930391930551096.
+fold 0 stopped at 26 score: 0.8104086336743088
+fold 3 stopped at 35 score: 0.7986063277053648
+fold 1 stopped at 35 score: 0.79456477090986
+fold 5 stopped at 35 score: 0.756459786650459
+fold 2 stopped at 35 score: 0.782666517196607
+fold 4 stopped at 35 score: 0.7901875125809397
+done in 105.59s, mean score: final_metric    0.793039
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:48:36,427] Trial 15 finished with value: 0.7930391930551096 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.2}. Best is trial 13 with value: 0.7930391930551096.
+fold 1 stopped at 30 score: 0.7926256664644118
+fold 2 stopped at 30 score: 0.7657560428953563
+fold 0 stopped at 30 score: 0.8007056765414495
+fold 3 stopped at 34 score: 0.7913524244162569
+fold 5 stopped at 35 score: 0.7599785359186033
+fold 4 stopped at 35 score: 0.7904724240018921
+done in 105.88s, mean score: final_metric    0.789138
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:50:26,940] Trial 16 finished with value: 0.7891381923304376 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.4, 'limbs_length_loss_weight': 0.6}. Best is trial 13 with value: 0.7930391930551096.
+fold 1 stopped at 26 score: 0.7805836143190625
+fold 3 stopped at 26 score: 0.7866662913796245
+fold 5 stopped at 26 score: 0.7503735543106016
+fold 4 stopped at 30 score: 0.7824470880532
+fold 0 stopped at 31 score: 0.799994688711174
+fold 2 stopped at 35 score: 0.7680607491624458
+done in 104.82s, mean score: final_metric    0.786052
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:52:16,381] Trial 17 finished with value: 0.7860516898963019 and parameters: {'sex_loss_weight': 0.6, 'handedness_loss_weight': 0.0, 'limbs_length_loss_weight': 0.4}. Best is trial 13 with value: 0.7930391930551096.
+fold 0 stopped at 26 score: 0.8104086336743088
+fold 2 stopped at 35 score: 0.782666517196607
+fold 1 stopped at 35 score: 0.79456477090986
+fold 3 stopped at 35 score: 0.7986063277053648
+fold 5 stopped at 35 score: 0.756459786650459
+fold 4 stopped at 35 score: 0.7901875125809397
+done in 105.14s, mean score: final_metric    0.793039
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:54:06,163] Trial 18 finished with value: 0.7930391930551096 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.2, 'limbs_length_loss_weight': 0.2}. Best is trial 13 with value: 0.7930391930551096.
+fold 0 stopped at 30 score: 0.8007056765414495
+fold 2 stopped at 30 score: 0.7657560428953563
+fold 1 stopped at 30 score: 0.7926256664644118
+fold 3 stopped at 34 score: 0.7913524244162569
+fold 5 stopped at 35 score: 0.7599785359186033
+fold 4 stopped at 35 score: 0.7904724240018921
+done in 105.57s, mean score: final_metric    0.789138
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:55:56,429] Trial 19 finished with value: 0.7891381923304376 and parameters: {'sex_loss_weight': 0.2, 'handedness_loss_weight': 0.4, 'limbs_length_loss_weight': 0.4}. Best is trial 13 with value: 0.7930391930551096.
+fold 3 stopped at 26 score: 0.7980705644516515
+fold 1 stopped at 26 score: 0.7855478158351161
+fold 0 stopped at 30 score: 0.7973041563226623
+fold 4 stopped at 30 score: 0.7886904498985774
+fold 5 stopped at 35 score: 0.7499332893939763
+fold 2 stopped at 35 score: 0.7742216517846146
+done in 105.26s, mean score: final_metric    0.788741
+dtype: float64
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:66: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  float(v)
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:70: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  if math.isnan(v):
+/venv/CMI/lib/python3.11/site-packages/optuna/study/_tell.py:167: FutureWarning: Calling float on a single element Series is deprecated and will raise a TypeError in the future. Use float(ser.iloc[0]) instead
+  values = [float(value) for value in values]
+[I 2025-08-25 16:57:46,347] Trial 20 finished with value: 0.7887405890929052 and parameters: {'sex_loss_weight': 0.4, 'handedness_loss_weight': 0.0, 'limbs_length_loss_weight': 0.2}. Best is trial 13 with value: 0.7930391930551096.

@@ -34,30 +34,57 @@ class FoldPruner(BasePruner):
 
 def objective(trial: optuna.trial.Trial) -> float:
     return train_on_all_folds(
+        # lr_scheduler_kw={
+        #     "warmup_epochs": trial.suggest_int("warmup_epochs", 12, 15),
+        #     "cycle_mult": trial.suggest_float("cycle_mult", 0.9, 1.6, step=0.1),
+        #     "max_lr": trial.suggest_float("max_lr", 0.005581907927062619 / 1.5, 0.005581907927062619 * 1.5, step=0.0001),
+        #     "max_to_min_div_factor": 250, #trial.suggest_float("max_to_min_div_factor", 100, 300, step=25),
+        #     "init_cycle_epochs": trial.suggest_int("init_cycle_epochs", 2, 10, ),
+        #     "lr_cycle_factor": trial.suggest_float("lr_cycle_factor", 0.25, 0.6, step=0.05),
+        # },
+        # optimizer_kw={
+        #     "weight_decay": trial.suggest_float("weight_decay", 5e-4, 1e-3),
+        #     "beta_0":trial.suggest_float("beta_0", 0.8, 0.999),
+        #     "beta_1":trial.suggest_float("beta_1", 0.99, 0.9999),
+        # },
         lr_scheduler_kw={
-            "warmup_epochs": trial.suggest_int("warmup_epochs", 12, 15),
-            "cycle_mult": trial.suggest_float("cycle_mult", 0.9, 1.6, step=0.1),
-            "max_lr": trial.suggest_float("max_lr", 0.005581907927062619 / 1.5, 0.005581907927062619 * 1.5, step=0.0001),
-            "max_to_min_div_factor": 250, #trial.suggest_float("max_to_min_div_factor", 100, 300, step=25),
-            "init_cycle_epochs": trial.suggest_int("init_cycle_epochs", 2, 10, ),
-            "lr_cycle_factor": trial.suggest_float("lr_cycle_factor", 0.25, 0.6, step=0.05),
+            'warmup_epochs': 14,
+            'cycle_mult': 0.9,
+            'max_lr': 0.00652127195137508,
+            'init_cycle_epochs': 4,
+            'lr_cycle_factor': 0.45,
+            'max_to_min_div_factor': 250,
         },
         optimizer_kw={
-            "weight_decay": trial.suggest_float("weight_decay", 5e-4, 1e-3),
-            "beta_0":trial.suggest_float("beta_0", 0.8, 0.999),
-            "beta_1":trial.suggest_float("beta_1", 0.99, 0.9999),
+            'weight_decay': 0.000981287923867241, 
+            'beta_0': 0.8141978952748745,
+            'beta_1': 0.9905729096966865,
         },
         training_kw={
-            "orient_loss_weight": trial.suggest_float("orient_loss_weight", 0, 1, step=0.1),
-            "bin_demos_weight": trial.suggest_float("bin_demos_weight", 0, 1, step=0.1),
-            "reg_demos_weight": trial.suggest_float("reg_demos_weight", 0, 0.6, step=0.1),
+            "orient_loss_weight": 1.0,
+            # "orient_loss_weight": trial.suggest_float("orient_loss_weight", 0, 1, step=0.25),
+            # "sex_loss_weight": trial.suggest_float("sex_loss_weight", 0, 0.75, step=0.25),
+            # "handedness_loss_weight": trial.suggest_float("handedness_loss_weight", 0, 0.75, step=0.25),
+            # "adult_child_loss_weight": trial.suggest_float("adult_child_loss_weight", 0, 0.75, step=0.25),
+            # "age_loss_weight": trial.suggest_float("age_loss_weight", 0, 0.75, step=0.25),
+            # "height_cm_loss_weight": trial.suggest_float("height_cm_loss_weight", 0, 0.75, step=0.25),
+            # "shoulder_to_wrist_cm_loss_weight": trial.suggest_float("shoulder_to_wrist_cm_loss_weight", 0, 0.75, step=0.25),
+            # "elbow_to_wrist_cm_loss_weight": trial.suggest_float("elbow_to_wrist_cm_loss_weight", 0, 0.75, step=0.25),
+            # **{target + "_loss_weight": trial.suggest_float(target + "_loss_weight", 0, 0.75, step=0.25) for target in BINARY_DEMOS_TARGETS + REGRES_DEMOS_TARGETS}
+            # sex_loss_weight': 0.6, 'handedness_loss_weight': 0.5, 'limbs_length_loss_weight': 0.6
+            "height_cm_loss_weight": 0,
+            "sex_loss_weight": trial.suggest_float("sex_loss_weight", 0, 0.6, step=0.1),
+            "handedness_loss_weight": trial.suggest_float("handedness_loss_weight", 0, 0.6, step=0.1),
+            "arm_length_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
+            "elbow_to_wrist_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
+            "shoulder_to_elbow_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
         },
         trial=trial,
     )[0]
 
 if __name__ == "__main__":
     study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
-    study.optimize(objective, n_trials=100, timeout=60 * 60 * 3)
+    study.optimize(objective, n_trials=100, timeout=60 * 60 * 8)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])

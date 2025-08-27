@@ -119,23 +119,21 @@ def mk_scheduler(optimizer:Optimizer, steps_per_epoch:int, lr_scheduler_kw:dict)
     ) 
 
 def mixup_data(
-        x:Tensor,
-        y:Tensor,
-        aux_y:Tensor,
+        *tensors:list[Tensor],
         alpha=0.2
     ) -> tuple[Tensor, Tensor] | tuple[Tensor, Tensor, Tensor]:
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1.0
-    batch_size = x.size(0)
-    index = torch.randperm(batch_size).to(x.device)
 
-    mixed_x = lam * x + (1 - lam) * x[index, :]
-    mixed_y = lam * y + (1 - lam) * y[index, :]
-    mixed_aux_y = lam * aux_y + (1 - lam) * aux_y[index, :]
+    mix_idx = torch.randperm(TRAIN_BATCH_SIZE).to(tensors[0].device)
 
-    return mixed_x, mixed_y, mixed_aux_y
+    def mix_tensor(tensor: Tensor) -> Tensor:
+        tensor[mix_idx] = lam * tensor[mix_idx] + (1 - lam) * tensor[mix_idx]
+        return tensor
+    
+    return list(map(mix_tensor, tensors))
 
 def train_model_on_single_epoch(
         meta_data:dict,
@@ -153,7 +151,7 @@ def train_model_on_single_epoch(
     train_metrics["train_loss"] = 0.0
     total = 0
     tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
-    
+
     for batch_x, batch_y, batch_orientation_y, bin_demos_y, reg_demos_y, idx in train_loader:
         batch_orientation_y = batch_orientation_y.clone()
         batch_x = batch_x.to(device).clone()
@@ -164,16 +162,25 @@ def train_model_on_single_epoch(
         batch_y = batch_y.to(device)
         batch_x = batch_x.float()
         
-        batch_x, batch_y, batch_orientation_y = mixup_data(batch_x, batch_y, batch_orientation_y)
+        batch_x, batch_y, batch_orientation_y,bin_demos_y, reg_demos_y = mixup_data(
+            batch_x,
+            batch_y,
+            batch_orientation_y,
+            bin_demos_y,
+            reg_demos_y,
+        )
 
         optimizer.zero_grad()
         outputs, orient_output, bin_demos_output, reg_demos_output = model(batch_x)
         bce = nn.BCEWithLogitsLoss()
-        loss = criterion(outputs, batch_y)  \
-               + bce(bin_demos_output, bin_demos_y) * training_kw["bin_demos_weight"] \
-               + criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] \
-               + nn.functional.mse_loss(reg_demos_output, reg_demos_y) * training_kw["reg_demos_weight"] \
-            
+        loss = criterion(outputs, batch_y) + criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] 
+        for binary_target_idx, binary_target in enumerate(BINARY_DEMOS_TARGETS):
+            bce_loss = bce(bin_demos_output[:, [binary_target_idx]], bin_demos_y[:, [binary_target_idx]])
+            loss += bce_loss * training_kw[binary_target + "_loss_weight"]
+        for reg_target_idx, reg_target in enumerate(REGRES_DEMOS_TARGETS):
+            mse_loss = nn.functional.mse_loss(reg_demos_output[:, [reg_target_idx]], reg_demos_y[:, [reg_target_idx]])
+            loss += mse_loss * training_kw[reg_target + "_loss_weight"]
+
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -320,7 +327,7 @@ def train_model_on_all_epochs(
         tuple[DF, DF]: epoch wise metrics, sample(sequence) wise meta data metrics
     """
     meta_data = get_meta_data()
-    train_loader = DL(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, drop_last=False)
+    train_loader = DL(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, drop_last=True)
     validation_loader = DL(validation_dataset, VALIDATION_BATCH_SIZE, shuffle=False, drop_last=False)
 
     metrics:list[dict] = []
@@ -399,10 +406,10 @@ def train_on_single_fold(
     seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
 def sgkf_from_tensor_dataset(
-    # dataset: TensorDataset,
-    n_splits: int = 5,
-    shuffle: bool = True,
-) -> Iterator[tuple[int, int, int]]:
+        # dataset: TensorDataset,
+        n_splits: int = 5,
+        shuffle: bool = True,
+    ) -> Iterator[tuple[int, int, int]]:
     """Returns iterator of tuple of train and val indices and seed."""
     # Load sequence meta data to get classes and groups parameters
     seq_meta = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
@@ -494,13 +501,12 @@ def train_on_all_folds(
         .mean()
     )
     print(f"done in {end_time - start_time:.2f}s, mean score:", mean_val_score)
-    print("all epochs metrics:")
-    print(epoch_metrics)
-    print("")
     return mean_val_score, epoch_metrics, seq_metrics
 
 if __name__ == "__main__":
     seed_everything(SEED)
+    BINARY_DEMOS_TARGETS = ["sex", "handedness", "adult_child", "age", "height_cm", "shoulder_to_wrist_cm", "elbow_to_wrist_cm"]
+
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         lr_scheduler_kw={
             'warmup_epochs': 14,
@@ -517,13 +523,20 @@ if __name__ == "__main__":
         },
         training_kw={
             'orient_loss_weight': 1.0,
-            'bin_demos_weight': 0.6000000000000001,
-            'reg_demos_weight': 0.0,
+            "sex_loss_weight": 0.6,
+            "handedness_loss_weight": 0.5,
+            "arm_length_ratio_loss_weight": 0.6,
+            "elbow_to_wrist_ratio_loss_weight": 0.6,
+            "shoulder_to_elbow_ratio_loss_weight": 0.6,
+            
+            "height_cm_loss_weight": 0.0,
+            "age_loss_weight": 0,
         },
     )
+
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
-    user_input = input("Upload model ensemble?").lower()
+    user_input = input("Upload model ensemble?: ").lower()
     if user_input == "yes":
         kagglehub.model_upload(
             handle=join(
@@ -533,7 +546,7 @@ if __name__ == "__main__":
                 MODEL_VARIATION,
             ),
             local_model_dir="models",
-            version_notes=input("Please provide model version notes:")
+            version_notes=input("Please provide model version notes: ")
         )
     elif user_input == "no":
         print("Model has not been uploaded to kaggle.")

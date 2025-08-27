@@ -100,17 +100,23 @@ TOF_AGG_FUNCTIONS = [
     "min",
     "max",
 ]
-BINARY_DEMOS_TARGETS = ["sex", "handedness", "adult_child"]
-REGRES_DEMOS_TARGETS = ["age", "height_cm", "shoulder_to_wrist_cm", "elbow_to_wrist_cm"]
-
-
+BINARY_DEMOS_TARGETS = ["sex", "handedness"]
+REGRES_DEMOS_TARGETS = [
+    # "age",
+    "height_cm",
+    # "shoulder_to_wrist_cm",
+    # "elbow_to_wrist_cm",
+    "arm_length_ratio",
+    "elbow_to_wrist_ratio",
+    "shoulder_to_elbow_ratio",
+]
 # Data augmentation
 JITTER = 0.25
 SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 10
+N_FOLDS = 20
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8

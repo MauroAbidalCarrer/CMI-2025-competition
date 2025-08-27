@@ -243,7 +243,7 @@ def fold_dfs_to_ndarrays(train:DF, validation:DF, dataset_normed_seq_len:int, se
         *df_to_ndarrays(validation, dataset_normed_seq_len, seq_pad_trunc_mode),
     )
 
-def preprocess_competitino_dataset() -> DF:
+def preprocess_competition_dataset() -> DF:
     csv_path = kagglehub.competition_download(COMPETITION_HANDLE, path="train.csv")
     return (
         pd.read_csv(csv_path, dtype=DATASET_DF_DTYPES)
@@ -259,12 +259,19 @@ def preprocess_competitino_dataset() -> DF:
         .pipe(add_quat_angle_mag)
         .pipe(one_hot_encode_targets)
         .pipe(agg_tof_cols_per_sensor)
-        # .pipe(add_diff_features)
+    )
+
+def preprocess_demographics(demos:DF) -> DF:
+    return (
+        demos
+        .eval("arm_length_ratio = shoulder_to_wrist_cm / height_cm")
+        .eval("elbow_to_wrist_ratio = elbow_to_wrist_cm / shoulder_to_wrist_cm")
+        .eval("shoulder_to_elbow_ratio = (shoulder_to_wrist_cm - elbow_to_wrist_cm) / shoulder_to_wrist_cm")
     )
 
 def save_sequence_meta_data(df:DF) -> DF:
     demographics_csv_path = kagglehub.competition_download(COMPETITION_HANDLE, path="train_demographics.csv")
-    demographics = pd.read_csv(demographics_csv_path)
+    demographics = pd.read_csv(demographics_csv_path).pipe(preprocess_demographics)
     seq_grp = df.groupby("sequence_id", as_index=False, observed=True)
     seq_behavior_proportions = (
         seq_grp
@@ -323,7 +330,7 @@ def save_df_meta_data(df:DF):
 def create_preprocessed_dataset():
     shutil.rmtree("preprocessed_dataset", ignore_errors=True)
     os.makedirs("preprocessed_dataset")
-    df = preprocess_competitino_dataset()
+    df = preprocess_competition_dataset()
     df.to_parquet("preprocessed_dataset/df.parquet")
     full_dataset_sequence_length_norm = get_normed_seq_len(df)
     full_x, full_y = df_to_ndarrays(df, full_dataset_sequence_length_norm, SEQ_PAD_TRUNC_MODE)
