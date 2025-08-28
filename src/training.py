@@ -26,7 +26,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from dataset import split_dataset, sgkf_cmi_dataset, CMIDatasetSubset
+from dataset import split_dataset, sgkf_cmi_dataset, move_cmi_dataset
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -396,10 +396,6 @@ def load_metrics(name_format:str) -> DF:
         all_metrics = pd.concat((all_metrics, fold_metrics))
     return all_metrics
 
-def move_tensor_dataset(dataset: CMIDatasetSubset, device: torch.device) -> CMIDatasetSubset:
-    tensors = [t.to(device) for t in dataset.tensors]
-    return CMIDatasetSubset(*tensors)
-
 def train_on_all_folds(
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
@@ -413,7 +409,7 @@ def train_on_all_folds(
     gpus = range(torch.cuda.device_count())
     train_datasets = []
     for gpu_idx in gpus:
-        train_datasets.append(move_tensor_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
+        train_datasets.append(move_cmi_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
 
     folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []

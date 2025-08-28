@@ -67,6 +67,10 @@ def copy_subset(dataset: TensorDataset, indices) -> TensorDataset:
     cpy_tensor = lambda t: t[indices].to(copy=True)
     return TensorDataset(*tuple(map(cpy_tensor, dataset.tensors)))
 
+def move_cmi_dataset(dataset: CMIDatasetSubset, device: torch.device) -> CMIDatasetSubset:
+    tensors = [t.to(device) for t in dataset.tensors]
+    return CMIDatasetSubset(*tensors)
+
 def split_dataset() -> dict[str, tuple[TensorDataset, DF]]:
     """Returns: experts training idx, gating model training idx, validation idx"""
     seed_everything(SEED)
