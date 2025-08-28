@@ -148,12 +148,12 @@ DEFLT_LR_SCHEDULER_HP_KW={
     'init_cycle_epochs': 4,
     'lr_cycle_factor': 0.45,
     'max_to_min_div_factor': 250,
-},
+}
 DEFLT_OPTIMIZER_HP_KW={
     'weight_decay': 0.000981287923867241, 
     'beta_0': 0.8141978952748745,
     'beta_1': 0.9905729096966865,
-},
+}
 DEFLT_TRAINING_HP_KW={
     'orient_loss_weight': 1.0,
     "sex_loss_weight": 0.6,
@@ -163,7 +163,7 @@ DEFLT_TRAINING_HP_KW={
     "shoulder_to_elbow_ratio_loss_weight": 0.6,
     "height_cm_loss_weight": 0.0,
     "age_loss_weight": 0,
-},
+}
 # gating model
 GATING_INPUT_FEATURES = [
     "bin_mae",
