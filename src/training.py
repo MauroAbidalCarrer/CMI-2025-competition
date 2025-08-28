@@ -26,7 +26,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from dataset import split_dataset, sgkf_cmi_dataset
+from dataset import split_dataset, sgkf_cmi_dataset, CMIDatasetSubset
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -396,9 +396,9 @@ def load_metrics(name_format:str) -> DF:
         all_metrics = pd.concat((all_metrics, fold_metrics))
     return all_metrics
 
-def move_tensor_dataset(dataset: TensorDataset, device: torch.device) -> TensorDataset:
+def move_tensor_dataset(dataset: CMIDatasetSubset, device: torch.device) -> CMIDatasetSubset:
     tensors = [t.to(device) for t in dataset.tensors]
-    return TensorDataset(*tensors)
+    return CMIDatasetSubset(*tensors)
 
 def train_on_all_folds(
         lr_scheduler_kw: dict,
@@ -413,7 +413,7 @@ def train_on_all_folds(
     gpus = range(torch.cuda.device_count())
     train_datasets = []
     for gpu_idx in gpus:
-        train_datasets.append(move_tensor_dataset(train_dataset, torch.device(f"cuda: {gpu_idx}")))
+        train_datasets.append(move_tensor_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
 
     folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
@@ -450,7 +450,6 @@ def train_on_all_folds(
                 gpu_idx,
             )
         )
-        # print(f"Starting process for fold {fold_idx} on GPU {gpu_idx}")
         p.start()
         active[gpu_idx] = p
         processes.append(p)
@@ -476,7 +475,6 @@ def train_on_all_folds(
 if __name__ == "__main__":
     seed_everything(SEED)
     train_dataset, seq_meta = split_dataset()["expert_train"]
-    print(seq_meta)
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         DEFLT_LR_SCHEDULER_HP_KW,
         DEFLT_OPTIMIZER_HP_KW,
