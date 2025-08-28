@@ -28,24 +28,6 @@ from utils import seed_everything
 from preprocessing import get_meta_data
 
 
-class CMIDataset(TensorDataset):
-    def __init__(self, device: torch.device):
-        x = np.load(join("preprocessed_dataset", "X.npy")).swapaxes(1, 2)
-        y = np.load(join("preprocessed_dataset", "Y.npy"))
-        auxiliary_orientation_y = np.load(join("preprocessed_dataset", "orientation_Y.npy"))
-        binary_demographics_y = np.load(join("preprocessed_dataset", "binary_demographics_Y.npy"))
-        regression_demographics_y = np.load(join("preprocessed_dataset", "regres_demographics_Y.npy"))
-        super().__init__(
-            torch.from_numpy(x).to(device),
-            torch.from_numpy(y).to(device),
-            torch.from_numpy(auxiliary_orientation_y).to(device),
-            torch.from_numpy(binary_demographics_y).to(device),
-            torch.from_numpy(regression_demographics_y).to(device),
-        )
-
-    def __getitem__(self, index):
-        return *super().__getitem__(index), index
-
 class CosineAnnealingWarmupRestarts(_LRScheduler):
     def __init__(
         self,
@@ -449,17 +431,16 @@ def train_on_all_folds(
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
-        dataset_subset_idx:Optional[list[int]]=None,
+        train_dataset: Dataset,
+        # dataset_subset_idx:Optional[list[int]]=None,
     ) -> None:
     start_time = time()
     seed_everything(seed=SEED)
     ctx = mp.get_context("spawn")
     gpus = range(torch.cuda.device_count())
-    full_datasets = [CMIDataset(torch.device(f"cuda:{gpu_idx}")) for gpu_idx in gpus]
-    if dataset_subset_idx is not None:
-        train_datasets = [Subset(dataset, dataset_subset_idx) for dataset in full_datasets]
-    else:
-        train_datasets = full_datasets
+    train_datasets = []
+    for gpu_idx in gpus:
+        train_datasets.append(train_dataset)
 
     folds_it = list(sgkf_from_tensor_dataset(train_datasets[0], N_FOLDS))
     processes: list[mp.Process] = []
@@ -528,19 +509,3 @@ if __name__ == "__main__":
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
-    # user_input = input("Upload model ensemble?: ").lower()
-    # if user_input == "yes":
-    #     kagglehub.model_upload(
-    #         handle=join(
-    #             kagglehub.whoami()["username"],
-    #             MODEL_NAME,
-    #             "pyTorch",
-    #             MODEL_VARIATION,
-    #         ),
-    #         local_model_dir="models",
-    #         version_notes=input("Please provide model version notes: ")
-    #     )
-    # elif user_input == "no":
-    #     print("Model has not been uploaded to kaggle.")
-    # else:
-    #     print("User input was not understood, model has not been uploaded to kaggle.")

@@ -137,7 +137,7 @@ FOLDS_VAL_SCORE_ORDER = {
     10: [4, 7, 1, 9, 6, 2, 3, 8, 0, 5],
     5: [3, 1, 4, 2, 0],
 }
-# model
+# expert model
 KAGGLE_USERNAME = "mauroabidalcarrer"
 MODEL_NAME = "cmi-model"
 MODEL_VARIATION = "single_model_architecture"
@@ -164,3 +164,15 @@ DEFLT_TRAINING_HP_KW={
     "height_cm_loss_weight": 0.0,
     "age_loss_weight": 0,
 },
+# gating model
+GATING_INPUT_FEATURES = [
+    "bin_mae",
+    "reg_mae",
+    "y_uncertainty",
+    "bin_uncertainty",
+    "reg_uncertainty",
+    "orient_uncertainty",
+]
+GATING_MODEL_TRAIN_BATCH_SIZE = 256
+GATING_MODEL_TEST_BATCH_SIZE = GATING_MODEL_TRAIN_BATCH_SIZE * 4
+N_GATING_MODEL_EPOCHS = 5
