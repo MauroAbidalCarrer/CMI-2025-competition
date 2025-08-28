@@ -26,6 +26,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
+from dataset import split_dataset, sgkf_cmi_dataset
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -387,38 +388,6 @@ def train_on_single_fold(
     epoch_metrics.to_parquet(f"metrics/epoch_metrics_fold_{fold_idx}.parquet")
     seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
-def sgkf_from_tensor_dataset(
-        dataset: Subset[CMIDataset] | CMIDataset,
-        n_splits: int = 5,
-    ) -> Iterator[tuple[int, int, int]]:
-    """Returns iterator of tuple of train and val indices and seed."""
-    # Load sequence meta data to get classes and groups parameters
-
-    if isinstance(dataset, Subset):
-        x = (
-            dataset
-            .dataset
-            .tensors[0][dataset.indices]
-            .cpu()
-            .numpy()
-        )
-        seq_meta = (
-            pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
-            .iloc[dataset.indices]
-        )
-    else:
-        x = dataset.tensors[0].cpu().numpy()
-        seq_meta = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
-    sgkf = StratifiedGroupKFold(
-        n_splits=n_splits,
-        shuffle=True,
-    )
-
-    fold_indices = list(sgkf.split(x, seq_meta["gesture"], seq_meta["subject"]))
-    folds_idx_oredered_by_score:list[int] = FOLDS_VAL_SCORE_ORDER.get(n_splits, range(n_splits))
-
-    for fold_idx in folds_idx_oredered_by_score:
-        yield *fold_indices[fold_idx], SEED + fold_idx
 
 def load_metrics(name_format:str) -> DF:
     all_metrics = DF()
@@ -427,12 +396,16 @@ def load_metrics(name_format:str) -> DF:
         all_metrics = pd.concat((all_metrics, fold_metrics))
     return all_metrics
 
+def move_tensor_dataset(dataset: TensorDataset, device: torch.device) -> TensorDataset:
+    tensors = [t.to(device) for t in dataset.tensors]
+    return TensorDataset(*tensors)
+
 def train_on_all_folds(
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
         train_dataset: Dataset,
-        # dataset_subset_idx:Optional[list[int]]=None,
+        seq_meta: DF,
     ) -> None:
     start_time = time()
     seed_everything(seed=SEED)
@@ -440,9 +413,9 @@ def train_on_all_folds(
     gpus = range(torch.cuda.device_count())
     train_datasets = []
     for gpu_idx in gpus:
-        train_datasets.append(train_dataset)
+        train_datasets.append(move_tensor_dataset(train_dataset, torch.device(f"cuda: {gpu_idx}")))
 
-    folds_it = list(sgkf_from_tensor_dataset(train_datasets[0], N_FOLDS))
+    folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
 
     # keep track of which GPU is free
@@ -502,10 +475,14 @@ def train_on_all_folds(
 
 if __name__ == "__main__":
     seed_everything(SEED)
+    train_dataset, seq_meta = split_dataset()["expert_train"]
+    print(seq_meta)
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         DEFLT_LR_SCHEDULER_HP_KW,
         DEFLT_OPTIMIZER_HP_KW,
         DEFLT_TRAINING_HP_KW,
+        train_dataset,
+        seq_meta,
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")

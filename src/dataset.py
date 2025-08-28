@@ -1,19 +1,17 @@
 from os.path import join
 from functools import partial
 from tqdm.notebook import tqdm
+from operator import methodcaller
 from collections import defaultdict
-from typing import Optional, Literal
+from typing import Optional, Literal, Iterator
 from itertools import pairwise, starmap, product
 
 import torch
-import kagglehub 
 import numpy as np
 import pandas as pd
 from numpy import ndarray
 from torch import nn, Tensor
-from torch.optim import Optimizer
 from pandas import DataFrame as DF
-from sklearn.metrics import f1_score
 from torch.utils.data import TensorDataset
 from torch.utils.data import Dataset, Subset
 from torch.utils.data import DataLoader as DL
@@ -45,7 +43,7 @@ def stratified_group_train_test_split(
     n_samples: int,
     y: np.ndarray,
     groups: np.ndarray,
-    test_size: float = 0.2,
+    test_size: float = 0.1,
     # random_state: int = 42,
     ) -> tuple[ndarray, ndarray]:
     assert n_samples == len(y) == len(groups), \
@@ -61,8 +59,11 @@ def stratified_group_train_test_split(
 
     return next(cv.split(np.zeros(n_samples), y, groups))
 
+def copy_subset(dataset: TensorDataset, indices) -> TensorDataset:
+    cpy_tensor = lambda t: t[indices].to(copy=True)
+    return TensorDataset(*tuple(map(cpy_tensor, dataset.tensors)))
 
-def split_dataset() -> tuple[Subset, Subset, Subset]:
+def split_dataset() -> dict[str, tuple[TensorDataset, DF]]:
     """Returns: experts training idx, gating model training idx, validation idx"""
     seed_everything(SEED)
     full_dataset = CMIDataset(torch.device("cpu"))
@@ -72,14 +73,34 @@ def split_dataset() -> tuple[Subset, Subset, Subset]:
         seq_meta["gesture"],
         seq_meta["subject"],
     )
+    train_dataset = copy_subset(full_dataset, train_idx)
+    train_seq_meta = seq_meta.iloc[train_idx]
     expert_train_idx, gating_train_idx = stratified_group_train_test_split(
-        len(train_idx),
-        seq_meta["gesture"].iloc[train_idx],
-        seq_meta["subject"].iloc[train_idx]
+        len(train_dataset),
+        train_seq_meta["gesture"],
+        train_seq_meta["subject"],
     )
-    
-    return (
-        Subset(full_dataset, expert_train_idx),
-        Subset(full_dataset, gating_train_idx),
-        Subset(full_dataset, validation_idx),
+
+    return {
+        "expert_train": (copy_subset(train_dataset, expert_train_idx), train_seq_meta.iloc[expert_train_idx]),
+        "gating_train": (copy_subset(train_dataset, gating_train_idx), train_seq_meta.iloc[gating_train_idx]),
+        "validation": (copy_subset(full_dataset, validation_idx), seq_meta.iloc[validation_idx]),
+    }
+
+def sgkf_cmi_dataset(dataset: Dataset, seq_meta: DF, n_splits: int) -> Iterator[tuple[int, int, int]]:
+    sgkf = StratifiedGroupKFold(
+        n_splits=n_splits,
+        shuffle=True,
     )
+
+    fold_indices = list(sgkf.split(np.empty(len(dataset)), seq_meta["gesture"], seq_meta["subject"]))
+    folds_idx_oredered_by_score:list[int] = FOLDS_VAL_SCORE_ORDER.get(n_splits, range(n_splits))
+
+    for fold_idx in folds_idx_oredered_by_score:
+        yield *fold_indices[fold_idx], SEED + fold_idx
+        
+if __name__ == "__main__":
+    dataset_splits = split_dataset()
+    print(dataset_splits["expert_train"])
+    print(dataset_splits["gating_train"])
+    print(dataset_splits["validation"])

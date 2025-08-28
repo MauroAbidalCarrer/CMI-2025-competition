@@ -24,7 +24,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from training import CMIDataset, sgkf_from_tensor_dataset
+from training import CMIDataset, sgkf_cmi_dataset
 
 
 def record_model_outputs(model:nn.Module, data_loader:DL, device:torch.device) -> tuple[Tensor]:
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     meta_data = get_meta_data()
     dataset = mk_gating_model_dataset()
     device = torch.device("cuda")
-    for fold_idx, (train_idx, validation_idx, seed) in enumerate(sgkf_from_tensor_dataset(dataset, n_splits=5)):
+    for fold_idx, (train_idx, validation_idx, seed) in enumerate(sgkf_cmi_dataset(dataset, n_splits=5)):
         print("fold", fold_idx)
         train_dataset = Subset(dataset, train_idx)
         validation_dataset = Subset(dataset, validation_idx)
