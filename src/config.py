@@ -25,6 +25,7 @@ TARGET_NAMES = sorted([
     "Scratch knee/leg skin",
     "Glasses on/off"
 ])
+N_TARGETS = len(TARGET_NAMES)
 BFRB_GESTURES = [
     'Above ear - pull hair',
     'Forehead - pull hairline',

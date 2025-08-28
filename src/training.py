@@ -147,7 +147,7 @@ def train_model_on_single_epoch(
     ) -> dict:
     "Train model on a single epoch"
     train_metrics = {}
-    model.train()
+    model = model.train()
     train_metrics["train_loss"] = 0.0
     total = 0
     tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
@@ -198,7 +198,7 @@ def evaluate_model(
         criterion:callable,
         device:torch.device
     ) -> dict:
-    model.eval()
+    model = model.eval()
     eval_metrics = {}
     eval_metrics["val_loss"] = 0.0
     total = 0
@@ -536,19 +536,19 @@ if __name__ == "__main__":
 
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
-    user_input = input("Upload model ensemble?: ").lower()
-    if user_input == "yes":
-        kagglehub.model_upload(
-            handle=join(
-                kagglehub.whoami()["username"],
-                MODEL_NAME,
-                "pyTorch",
-                MODEL_VARIATION,
-            ),
-            local_model_dir="models",
-            version_notes=input("Please provide model version notes: ")
-        )
-    elif user_input == "no":
-        print("Model has not been uploaded to kaggle.")
-    else:
-        print("User input was not understood, model has not been uploaded to kaggle.")
+    # user_input = input("Upload model ensemble?: ").lower()
+    # if user_input == "yes":
+    #     kagglehub.model_upload(
+    #         handle=join(
+    #             kagglehub.whoami()["username"],
+    #             MODEL_NAME,
+    #             "pyTorch",
+    #             MODEL_VARIATION,
+    #         ),
+    #         local_model_dir="models",
+    #         version_notes=input("Please provide model version notes: ")
+    #     )
+    # elif user_input == "no":
+    #     print("Model has not been uploaded to kaggle.")
+    # else:
+    #     print("User input was not understood, model has not been uploaded to kaggle.")
