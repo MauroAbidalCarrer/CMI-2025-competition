@@ -433,7 +433,7 @@ def sgkf_from_tensor_dataset(
     )
 
     fold_indices = list(sgkf.split(x, seq_meta["gesture"], seq_meta["subject"]))
-    folds_idx_oredered_by_score:list[int] = FOLDS_VAL_SCORE_ORDER.get(N_FOLDS, range(N_FOLDS))
+    folds_idx_oredered_by_score:list[int] = FOLDS_VAL_SCORE_ORDER.get(n_splits, range(n_splits))
 
     for fold_idx in folds_idx_oredered_by_score:
         yield *fold_indices[fold_idx], SEED + fold_idx
