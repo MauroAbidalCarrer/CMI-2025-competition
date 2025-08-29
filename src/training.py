@@ -26,25 +26,8 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
+from dataset import split_dataset, sgkf_cmi_dataset, move_cmi_dataset
 
-
-class CMIDataset(TensorDataset):
-    def __init__(self, device: torch.device):
-        x = np.load(join("preprocessed_dataset", "X.npy")).swapaxes(1, 2)
-        y = np.load(join("preprocessed_dataset", "Y.npy"))
-        auxiliary_orientation_y = np.load(join("preprocessed_dataset", "orientation_Y.npy"))
-        binary_demographics_y = np.load(join("preprocessed_dataset", "binary_demographics_Y.npy"))
-        regression_demographics_y = np.load(join("preprocessed_dataset", "regres_demographics_Y.npy"))
-        super().__init__(
-            torch.from_numpy(x).to(device),
-            torch.from_numpy(y).to(device),
-            torch.from_numpy(auxiliary_orientation_y).to(device),
-            torch.from_numpy(binary_demographics_y).to(device),
-            torch.from_numpy(regression_demographics_y).to(device),
-        )
-
-    def __getitem__(self, index):
-        return *super().__getitem__(index), index
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
     def __init__(
@@ -405,26 +388,6 @@ def train_on_single_fold(
     epoch_metrics.to_parquet(f"metrics/epoch_metrics_fold_{fold_idx}.parquet")
     seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
-def sgkf_from_tensor_dataset(
-        # dataset: TensorDataset,
-        n_splits: int = 5,
-        shuffle: bool = True,
-    ) -> Iterator[tuple[int, int, int]]:
-    """Returns iterator of tuple of train and val indices and seed."""
-    # Load sequence meta data to get classes and groups parameters
-    seq_meta = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
-    # X, *_ = dataset.tensors
-    x = np.load("preprocessed_dataset/X.npy")
-    sgkf = StratifiedGroupKFold(
-        n_splits=n_splits,
-        shuffle=shuffle,
-    )
-
-    fold_indices = list(sgkf.split(x, seq_meta["gesture"], seq_meta["subject"]))
-    folds_idx_oredered_by_score:list[int] = FOLDS_VAL_SCORE_ORDER.get(N_FOLDS, range(N_FOLDS))
-
-    for fold_idx in folds_idx_oredered_by_score:
-        yield *fold_indices[fold_idx], SEED + fold_idx
 
 def load_metrics(name_format:str) -> DF:
     all_metrics = DF()
@@ -437,15 +400,18 @@ def train_on_all_folds(
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
-        trial: Optional[optuna.trial.Trial]=None,
+        train_dataset: Dataset,
+        seq_meta: DF,
     ) -> None:
     start_time = time()
     seed_everything(seed=SEED)
     ctx = mp.get_context("spawn")
-    gpus = list(range(torch.cuda.device_count()))
-    full_datasets = {gpu_idx: CMIDataset(torch.device(f"cuda:{gpu_idx}")) for gpu_idx in gpus}
+    gpus = range(torch.cuda.device_count())
+    train_datasets = []
+    for gpu_idx in gpus:
+        train_datasets.append(move_cmi_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
 
-    folds_it = list(sgkf_from_tensor_dataset(N_FOLDS))
+    folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
 
     # keep track of which GPU is free
@@ -470,7 +436,7 @@ def train_on_all_folds(
             target=train_on_single_fold,
             args=(
                 fold_idx,
-                full_datasets[gpu_idx],
+                train_datasets[gpu_idx],
                 train_idx,
                 validation_idx,
                 lr_scheduler_kw,
@@ -480,7 +446,6 @@ def train_on_all_folds(
                 gpu_idx,
             )
         )
-        # print(f"Starting process for fold {fold_idx} on GPU {gpu_idx}")
         p.start()
         active[gpu_idx] = p
         processes.append(p)
@@ -491,7 +456,7 @@ def train_on_all_folds(
         proc.close()
 
     end_time = time()
-    
+
     epoch_metrics = load_metrics("epoch_metrics_fold_{}.parquet")
     seq_metrics = load_metrics("seq_metrics_fold_{}.parquet")
     mean_val_score = (
@@ -505,50 +470,13 @@ def train_on_all_folds(
 
 if __name__ == "__main__":
     seed_everything(SEED)
-    BINARY_DEMOS_TARGETS = ["sex", "handedness", "adult_child", "age", "height_cm", "shoulder_to_wrist_cm", "elbow_to_wrist_cm"]
-
+    train_dataset, seq_meta = split_dataset()["expert_train"]
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
-        lr_scheduler_kw={
-            'warmup_epochs': 14,
-            'cycle_mult': 0.9,
-            'max_lr': 0.00652127195137508,
-            'init_cycle_epochs': 4,
-            'lr_cycle_factor': 0.45,
-            'max_to_min_div_factor': 250,
-        },
-        optimizer_kw={
-            'weight_decay': 0.000981287923867241, 
-            'beta_0': 0.8141978952748745,
-            'beta_1': 0.9905729096966865,
-        },
-        training_kw={
-            'orient_loss_weight': 1.0,
-            "sex_loss_weight": 0.6,
-            "handedness_loss_weight": 0.5,
-            "arm_length_ratio_loss_weight": 0.6,
-            "elbow_to_wrist_ratio_loss_weight": 0.6,
-            "shoulder_to_elbow_ratio_loss_weight": 0.6,
-            
-            "height_cm_loss_weight": 0.0,
-            "age_loss_weight": 0,
-        },
+        DEFLT_LR_SCHEDULER_HP_KW,
+        DEFLT_OPTIMIZER_HP_KW,
+        DEFLT_TRAINING_HP_KW,
+        train_dataset,
+        seq_meta,
     )
-
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
-    # user_input = input("Upload model ensemble?: ").lower()
-    # if user_input == "yes":
-    #     kagglehub.model_upload(
-    #         handle=join(
-    #             kagglehub.whoami()["username"],
-    #             MODEL_NAME,
-    #             "pyTorch",
-    #             MODEL_VARIATION,
-    #         ),
-    #         local_model_dir="models",
-    #         version_notes=input("Please provide model version notes: ")
-    #     )
-    # elif user_input == "no":
-    #     print("Model has not been uploaded to kaggle.")
-    # else:
-    #     print("User input was not understood, model has not been uploaded to kaggle.")
