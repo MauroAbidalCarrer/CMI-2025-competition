@@ -58,8 +58,10 @@ def objective(
         "shoulder_to_elbow_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
     }
     lr_scheduler_kw = {
+        'warmup_epochs': trial.suggest_int("warmup_epochs", 12, 18),
         "cycle_mult": trial.suggest_float("cycle_mult", 0.9, 1.6, step=0.1),
         "init_cycle_epochs": trial.suggest_int("init_cycle_epochs", 2, 10, ),
+        "max_lr": trial.suggest_float("max_lr", 0.00552127195137508, 0.00752127195137508, step=0.0001),
         "lr_cycle_factor": trial.suggest_float("lr_cycle_factor", 0.25, 0.6, step=0.05),
     }
     
@@ -68,9 +70,9 @@ def objective(
         training_kw=DEFLT_TRAINING_HP_KW | train_kw,
         lr_scheduler_kw=DEFLT_LR_SCHEDULER_HP_KW | lr_scheduler_kw,
         optimizer_kw={
-            'weight_decay': 0.000981287923867241, 
-            'beta_0': 0.8141978952748745,
-            'beta_1': 0.9905729096966865,
+            'weight_decay': trial.suggest_float("weight_decay", 0.000901287923867241, 0.001001287923867241, step=0.00001), 
+            'beta_0': trial.suggest_float("beta_0", 0.8101978952748745, 0.8201978952748745, step=0.001),
+            'beta_1': trial.suggest_float("beta_1", 0.9855729096966865, 0.9955729096966865, step=0.001),
         },
         seq_meta=train_seq_meta,
     )

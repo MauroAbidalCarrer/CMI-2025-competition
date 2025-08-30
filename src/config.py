@@ -36,6 +36,7 @@ BFRB_GESTURES = [
     'Neck - scratch',
     'Cheek - pinch skin'
 ]
+NON_BFRB_GESTURES = list(set(TARGET_NAMES) - set(BFRB_GESTURES))
 BFRB_INDICES = [idx for idx, gesture in enumerate(TARGET_NAMES) if gesture in BFRB_GESTURES]
 IMU_FEATS_PREFIXES = (
     "acc",
@@ -91,6 +92,7 @@ EULER_ANGLES_COLS = ["euler_x", "euler_y", "euler_z"]
 pad_trunc_mode_type = Literal["pre", "center", "post"]
 SEQ_PAD_TRUNC_MODE: pad_trunc_mode_type = "center"
 DEFAULT_VERSION_NOTES = "Preprocessed Child Mind Institue 2025 competition preprocessed dataset."
+N_TOF_SENSORS = 5
 NB_COLS_PER_TOF_SENSOR = 64
 TOF_PATCH_SIZE = 2
 assert ((NB_COLS_PER_TOF_SENSOR // 2) % TOF_PATCH_SIZE) == 0, "tof side len should be dividable by TOF_PATCH_SIZE!"
@@ -117,7 +119,7 @@ SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 2
+N_FOLDS = 20
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8
