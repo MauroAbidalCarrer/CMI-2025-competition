@@ -81,20 +81,19 @@ def split_dataset() -> dict[str, tuple[TensorDataset, DF]]:
         seq_meta["gesture"],
         seq_meta["subject"],
     )
-    train_dataset = copy_subset(full_dataset, train_idx)
-    train_seq_meta = seq_meta.iloc[train_idx]
-    expert_train_idx, gating_train_idx = stratified_group_train_test_split(
-        len(train_dataset),
-        train_seq_meta["gesture"],
-        train_seq_meta["subject"],
-    )
-
-    expert_train = copy_subset(train_dataset, expert_train_idx)
-    expert_train = CMIDatasetSubset(*expert_train.tensors)
     return {
-        "expert_train": (expert_train, train_seq_meta.iloc[expert_train_idx]),
-        "gating_train": (copy_subset(train_dataset, gating_train_idx), train_seq_meta.iloc[gating_train_idx]),
-        "validation": (copy_subset(full_dataset, validation_idx), seq_meta.iloc[validation_idx]),
+        "full": (
+            full_dataset,
+            seq_meta,
+        ),
+        "expert_train": (
+            copy_subset(full_dataset, train_idx),
+            seq_meta.iloc[train_idx],
+        ),
+        "validation": (
+            copy_subset(full_dataset, validation_idx),
+            seq_meta.iloc[validation_idx]
+        ),
     }
 
 def sgkf_cmi_dataset(dataset: Dataset, seq_meta: DF, n_splits: int) -> Iterator[tuple[int, int, int]]:
