@@ -108,6 +108,13 @@ def sgkf_cmi_dataset(dataset: Dataset, seq_meta: DF, n_splits: int) -> Iterator[
     for fold_idx in folds_idx_oredered_by_score:
         yield *fold_indices[fold_idx], SEED + fold_idx
 
+def get_fold_datasets(split:str) -> tuple[TensorDataset, DF]:
+    train_dataset, seq_meta = split_dataset()[split]
+    train_datasets = []
+    for gpu_idx in range(torch.cuda.device_count()):
+        train_datasets.append(move_cmi_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
+    return train_datasets, seq_meta
+
 if __name__ == "__main__":
     dataset_splits = split_dataset()
     print(dataset_splits["expert_train"])
