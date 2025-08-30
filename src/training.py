@@ -407,9 +407,9 @@ def train_on_all_folds(
     ctx = mp.get_context("spawn")
     gpus = range(torch.cuda.device_count())
 
+    print(train_datasets)
     folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
-
     # keep track of which GPU is free
     active: dict[int, mp.Process] = {}
 

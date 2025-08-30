@@ -86,7 +86,7 @@ def split_dataset() -> dict[str, tuple[TensorDataset, DF]]:
             full_dataset,
             seq_meta,
         ),
-        "expert_train": (
+        "train": (
             copy_subset(full_dataset, train_idx),
             seq_meta.iloc[train_idx],
         ),
@@ -111,6 +111,9 @@ def sgkf_cmi_dataset(dataset: Dataset, seq_meta: DF, n_splits: int) -> Iterator[
 def get_fold_datasets(split:str) -> tuple[TensorDataset, DF]:
     train_dataset, seq_meta = split_dataset()[split]
     train_datasets = []
+    if torch.cuda.device_count() == 0:
+        print("NANNIIIIII! there are no available GPUs!!!")
+        print("torch.cuda.device_count:", torch.cuda.device_count())
     for gpu_idx in range(torch.cuda.device_count()):
         train_datasets.append(move_cmi_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
     return train_datasets, seq_meta
