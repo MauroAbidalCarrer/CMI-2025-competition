@@ -26,7 +26,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from dataset import sgkf_cmi_dataset, get_fold_datasets
+from dataset import sgkf_cmi_dataset, split_dataset, get_fold_datasets
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -190,20 +190,21 @@ def evaluate_model(
     tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
 
     with torch.no_grad():
-        for batch_x, batch_y, *_ in validation_loader:
+        for batch_x, y_true, *_ in validation_loader:
             batch_x = batch_x.to(device).clone()
-            batch_y = batch_y.to(device)
+            y_true = y_true.to(device)
             batch_x[:VALIDATION_BATCH_SIZE // 2, tof_and_thm_idx] = 0.0
 
-            outputs, *_ = model(batch_x)
-            loss = criterion(outputs, batch_y)
+            y_pred, *_ = model(batch_x)
+            loss = criterion(y_pred, y_true)
+            # print('loss dtype:', loss.dtype, "y_pred dtype:", y_pred.dtype)
             eval_metrics["val_loss"] += loss.item() * batch_x.size(0)
             total += batch_x.size(0)
 
             # Get predicted class indices
-            preds = torch.argmax(outputs, dim=1).cpu().numpy()
+            preds = torch.argmax(y_pred, dim=1).cpu().numpy()
             # Get true class indices from one-hot
-            trues = torch.argmax(batch_y, dim=1).cpu().numpy()
+            trues = torch.argmax(y_true, dim=1).cpu().numpy()
 
             all_true.append(trues)
             all_pred.append(preds)
@@ -407,7 +408,6 @@ def train_on_all_folds(
     ctx = mp.get_context("spawn")
     gpus = range(torch.cuda.device_count())
 
-    print(train_datasets)
     folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
     # keep track of which GPU is free
@@ -466,7 +466,8 @@ def train_on_all_folds(
 
 if __name__ == "__main__":
     seed_everything(SEED)
-    train_datasets, seq_meta = get_fold_datasets("train")
+    train_split, seq_meta = split_dataset()["train"]
+    train_datasets = get_fold_datasets(train_split)
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         train_datasets,
         DEFLT_LR_SCHEDULER_HP_KW,
