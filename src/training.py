@@ -26,7 +26,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from dataset import split_dataset, sgkf_cmi_dataset, move_cmi_dataset
+from dataset import sgkf_cmi_dataset, get_fold_datasets
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -388,7 +388,6 @@ def train_on_single_fold(
     epoch_metrics.to_parquet(f"metrics/epoch_metrics_fold_{fold_idx}.parquet")
     seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
-
 def load_metrics(name_format:str) -> DF:
     all_metrics = DF()
     for fold_idx in range(N_FOLDS):
@@ -397,19 +396,16 @@ def load_metrics(name_format:str) -> DF:
     return all_metrics
 
 def train_on_all_folds(
+        train_datasets: list[TensorDataset],
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
-        train_dataset: Dataset,
         seq_meta: DF,
     ) -> None:
     start_time = time()
     seed_everything(seed=SEED)
     ctx = mp.get_context("spawn")
     gpus = range(torch.cuda.device_count())
-    train_datasets = []
-    for gpu_idx in gpus:
-        train_datasets.append(move_cmi_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
 
     folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
@@ -470,12 +466,12 @@ def train_on_all_folds(
 
 if __name__ == "__main__":
     seed_everything(SEED)
-    train_dataset, seq_meta = split_dataset()["expert_train"]
+    train_datasets, seq_meta = get_fold_datasets("train")
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
+        train_datasets,
         DEFLT_LR_SCHEDULER_HP_KW,
         DEFLT_OPTIMIZER_HP_KW,
         DEFLT_TRAINING_HP_KW,
-        train_dataset,
         seq_meta,
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
