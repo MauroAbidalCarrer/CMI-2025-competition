@@ -1,10 +1,18 @@
+from functools import partial
+
+import torch
 import optuna
+from pandas import DataFrame as DF
 from optuna.trial import TrialState
 from optuna.pruners import BasePruner
+from torch.utils.data import TensorDataset
+from torch.utils.data import DataLoader as DL
 
 from config import *
-
-from training import train_on_all_folds
+from model import mk_model_ensemble
+from preprocessing import get_meta_data
+from dataset import split_dataset, get_fold_datasets, move_cmi_dataset
+from training import train_on_all_folds, evaluate_model
 
 class FoldPruner(BasePruner):
     def __init__(
@@ -29,62 +37,64 @@ class FoldPruner(BasePruner):
         # compute reference value from other_vals
         ref = max(other_vals)
         current_val = current_trial.intermediate_values[current_fold]
-        
+
         return current_val < (ref - self.tolerance)
 
-def objective(trial: optuna.trial.Trial) -> float:
-    return train_on_all_folds(
-        # lr_scheduler_kw={
-        #     "warmup_epochs": trial.suggest_int("warmup_epochs", 12, 15),
-        #     "cycle_mult": trial.suggest_float("cycle_mult", 0.9, 1.6, step=0.1),
-        #     "max_lr": trial.suggest_float("max_lr", 0.005581907927062619 / 1.5, 0.005581907927062619 * 1.5, step=0.0001),
-        #     "max_to_min_div_factor": 250, #trial.suggest_float("max_to_min_div_factor", 100, 300, step=25),
-        #     "init_cycle_epochs": trial.suggest_int("init_cycle_epochs", 2, 10, ),
-        #     "lr_cycle_factor": trial.suggest_float("lr_cycle_factor", 0.25, 0.6, step=0.05),
-        # },
-        # optimizer_kw={
-        #     "weight_decay": trial.suggest_float("weight_decay", 5e-4, 1e-3),
-        #     "beta_0":trial.suggest_float("beta_0", 0.8, 0.999),
-        #     "beta_1":trial.suggest_float("beta_1", 0.99, 0.9999),
-        # },
-        lr_scheduler_kw={
-            'warmup_epochs': 14,
-            'cycle_mult': 0.9,
-            'max_lr': 0.00652127195137508,
-            'init_cycle_epochs': 4,
-            'lr_cycle_factor': 0.45,
-            'max_to_min_div_factor': 250,
-        },
+def objective(
+        trial: optuna.trial.Trial,
+        train_datasets: list[TensorDataset],
+        train_seq_meta:DF,
+        preprocessed_meta_data: dict,
+        val_loader: DL,
+        val_device: torch.device,
+    ) -> float:
+    train_kw = {
+        "orient_loss_weight": trial.suggest_float("orient_loss_weight", 0, 1, step=0.1),
+        "height_cm_loss_weight": 0,
+        "sex_loss_weight": trial.suggest_float("sex_loss_weight", 0, 0.6, step=0.1),
+        "handedness_loss_weight": trial.suggest_float("handedness_loss_weight", 0, 0.6, step=0.1),
+        "arm_length_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
+        "elbow_to_wrist_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
+        "shoulder_to_elbow_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
+    }
+    lr_scheduler_kw = {
+        "cycle_mult": trial.suggest_float("cycle_mult", 0.9, 1.6, step=0.1),
+        "init_cycle_epochs": trial.suggest_int("init_cycle_epochs", 2, 10, ),
+        "lr_cycle_factor": trial.suggest_float("lr_cycle_factor", 0.25, 0.6, step=0.05),
+    }
+    
+    train_on_all_folds(
+        train_datasets,
+        training_kw=DEFLT_TRAINING_HP_KW | train_kw,
+        lr_scheduler_kw=DEFLT_LR_SCHEDULER_HP_KW | lr_scheduler_kw,
         optimizer_kw={
             'weight_decay': 0.000981287923867241, 
             'beta_0': 0.8141978952748745,
             'beta_1': 0.9905729096966865,
         },
-        training_kw={
-            "orient_loss_weight": 1.0,
-            # "orient_loss_weight": trial.suggest_float("orient_loss_weight", 0, 1, step=0.25),
-            # "sex_loss_weight": trial.suggest_float("sex_loss_weight", 0, 0.75, step=0.25),
-            # "handedness_loss_weight": trial.suggest_float("handedness_loss_weight", 0, 0.75, step=0.25),
-            # "adult_child_loss_weight": trial.suggest_float("adult_child_loss_weight", 0, 0.75, step=0.25),
-            # "age_loss_weight": trial.suggest_float("age_loss_weight", 0, 0.75, step=0.25),
-            # "height_cm_loss_weight": trial.suggest_float("height_cm_loss_weight", 0, 0.75, step=0.25),
-            # "shoulder_to_wrist_cm_loss_weight": trial.suggest_float("shoulder_to_wrist_cm_loss_weight", 0, 0.75, step=0.25),
-            # "elbow_to_wrist_cm_loss_weight": trial.suggest_float("elbow_to_wrist_cm_loss_weight", 0, 0.75, step=0.25),
-            # **{target + "_loss_weight": trial.suggest_float(target + "_loss_weight", 0, 0.75, step=0.25) for target in BINARY_DEMOS_TARGETS + REGRES_DEMOS_TARGETS}
-            # sex_loss_weight': 0.6, 'handedness_loss_weight': 0.5, 'limbs_length_loss_weight': 0.6
-            "height_cm_loss_weight": 0,
-            "sex_loss_weight": trial.suggest_float("sex_loss_weight", 0, 0.6, step=0.1),
-            "handedness_loss_weight": trial.suggest_float("handedness_loss_weight", 0, 0.6, step=0.1),
-            "arm_length_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
-            "elbow_to_wrist_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
-            "shoulder_to_elbow_ratio_loss_weight": trial.suggest_float("limbs_length_loss_weight", 0, 0.6, step=0.1),
-        },
-        trial=trial,
-    )[0]
+        seq_meta=train_seq_meta,
+    )
+    ensemble = mk_model_ensemble("models", val_device)
+    val_metrics = evaluate_model(preprocessed_meta_data, ensemble, val_loader, torch.nn.CrossEntropyLoss(), val_device)
+    return val_metrics["final_metric"]
 
 if __name__ == "__main__":
     study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
-    study.optimize(objective, n_trials=100, timeout=60 * 60 * 8)
+    splits = split_dataset()
+    val_device = torch.device("cuda")
+    train_datasets = get_fold_datasets(splits["train"][0])
+    val_dataset = move_cmi_dataset(splits["validation"][0], val_device)
+    val_loader = DL(val_dataset, VALIDATION_BATCH_SIZE, shuffle=True)
+    preprocessed_meta_data = get_meta_data()
+    part_objective = partial(
+        objective,
+        train_datasets=train_datasets,
+        train_seq_meta=splits["train"][1],
+        val_loader=val_loader,
+        preprocessed_meta_data=preprocessed_meta_data,
+        val_device=val_device,
+    )
+    study.optimize(part_objective, n_trials=100, timeout=60 * 60 * 8)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])

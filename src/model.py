@@ -1,5 +1,6 @@
-import math
+from os.path import join
 from typing import Optional
+from functools import partial
 from itertools import pairwise, starmap
 
 import torch
@@ -193,3 +194,26 @@ def mk_model(
     if device is not None:
         model = model.to(device)
     return model
+
+class ModelEnsemble(nn.ModuleList):
+    def forward(self, x: Tensor) -> tuple[Tensor, ...]:
+        outputs: list[tuple[Tensor, ...]] = [model(x) for model in self]
+        outputs: tuple[Tensor] = tuple(map(torch.stack, zip(*outputs)))
+        outputs: tuple[Tensor] = tuple(map(partial(torch.mean, dim=0), outputs))
+        return outputs
+        
+def mk_model_ensemble(parent_dir: str, device: torch.device) -> ModelEnsemble:
+    models = []
+    for fold_idx in range(N_FOLDS):
+        model = mk_model().to(device)
+        checkpoint = torch.load(
+            join(
+                parent_dir,
+                f"model_fold_{fold_idx}.pth"
+            ),
+            map_location=device,
+            weights_only=True
+        )
+        model.load_state_dict(checkpoint)
+        models.append(model)
+    return ModelEnsemble(models).to(device)

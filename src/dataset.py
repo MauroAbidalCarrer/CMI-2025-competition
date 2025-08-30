@@ -81,20 +81,19 @@ def split_dataset() -> dict[str, tuple[TensorDataset, DF]]:
         seq_meta["gesture"],
         seq_meta["subject"],
     )
-    train_dataset = copy_subset(full_dataset, train_idx)
-    train_seq_meta = seq_meta.iloc[train_idx]
-    expert_train_idx, gating_train_idx = stratified_group_train_test_split(
-        len(train_dataset),
-        train_seq_meta["gesture"],
-        train_seq_meta["subject"],
-    )
-
-    expert_train = copy_subset(train_dataset, expert_train_idx)
-    expert_train = CMIDatasetSubset(*expert_train.tensors)
     return {
-        "expert_train": (expert_train, train_seq_meta.iloc[expert_train_idx]),
-        "gating_train": (copy_subset(train_dataset, gating_train_idx), train_seq_meta.iloc[gating_train_idx]),
-        "validation": (copy_subset(full_dataset, validation_idx), seq_meta.iloc[validation_idx]),
+        "full": (
+            full_dataset,
+            seq_meta,
+        ),
+        "train": (
+            copy_subset(full_dataset, train_idx),
+            seq_meta.iloc[train_idx],
+        ),
+        "validation": (
+            copy_subset(full_dataset, validation_idx),
+            seq_meta.iloc[validation_idx]
+        ),
     }
 
 def sgkf_cmi_dataset(dataset: Dataset, seq_meta: DF, n_splits: int) -> Iterator[tuple[int, int, int]]:
@@ -108,6 +107,16 @@ def sgkf_cmi_dataset(dataset: Dataset, seq_meta: DF, n_splits: int) -> Iterator[
 
     for fold_idx in folds_idx_oredered_by_score:
         yield *fold_indices[fold_idx], SEED + fold_idx
+
+def get_fold_datasets(train_split: TensorDataset) -> tuple[TensorDataset, DF]:
+    # train_dataset, seq_meta = split_dataset()[split]
+    train_datasets = []
+    if torch.cuda.device_count() == 0:
+        print("NANNIIIIII! there are no available GPUs!!!")
+        print("torch.cuda.device_count:", torch.cuda.device_count())
+    for gpu_idx in range(torch.cuda.device_count()):
+        train_datasets.append(move_cmi_dataset(train_split, torch.device(f"cuda:{gpu_idx}")))
+    return train_datasets
 
 if __name__ == "__main__":
     dataset_splits = split_dataset()

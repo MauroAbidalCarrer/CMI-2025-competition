@@ -26,7 +26,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from dataset import split_dataset, sgkf_cmi_dataset, move_cmi_dataset
+from dataset import sgkf_cmi_dataset, split_dataset, get_fold_datasets
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -190,20 +190,21 @@ def evaluate_model(
     tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
 
     with torch.no_grad():
-        for batch_x, batch_y, *_ in validation_loader:
+        for batch_x, y_true, *_ in validation_loader:
             batch_x = batch_x.to(device).clone()
-            batch_y = batch_y.to(device)
+            y_true = y_true.to(device)
             batch_x[:VALIDATION_BATCH_SIZE // 2, tof_and_thm_idx] = 0.0
 
-            outputs, *_ = model(batch_x)
-            loss = criterion(outputs, batch_y)
+            y_pred, *_ = model(batch_x)
+            loss = criterion(y_pred, y_true)
+            # print('loss dtype:', loss.dtype, "y_pred dtype:", y_pred.dtype)
             eval_metrics["val_loss"] += loss.item() * batch_x.size(0)
             total += batch_x.size(0)
 
             # Get predicted class indices
-            preds = torch.argmax(outputs, dim=1).cpu().numpy()
+            preds = torch.argmax(y_pred, dim=1).cpu().numpy()
             # Get true class indices from one-hot
-            trues = torch.argmax(batch_y, dim=1).cpu().numpy()
+            trues = torch.argmax(y_true, dim=1).cpu().numpy()
 
             all_true.append(trues)
             all_pred.append(preds)
@@ -388,7 +389,6 @@ def train_on_single_fold(
     epoch_metrics.to_parquet(f"metrics/epoch_metrics_fold_{fold_idx}.parquet")
     seq_metrics.to_parquet(f"metrics/seq_metrics_fold_{fold_idx}.parquet")
 
-
 def load_metrics(name_format:str) -> DF:
     all_metrics = DF()
     for fold_idx in range(N_FOLDS):
@@ -397,23 +397,19 @@ def load_metrics(name_format:str) -> DF:
     return all_metrics
 
 def train_on_all_folds(
+        train_datasets: list[TensorDataset],
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
-        train_dataset: Dataset,
         seq_meta: DF,
     ) -> None:
     start_time = time()
     seed_everything(seed=SEED)
     ctx = mp.get_context("spawn")
     gpus = range(torch.cuda.device_count())
-    train_datasets = []
-    for gpu_idx in gpus:
-        train_datasets.append(move_cmi_dataset(train_dataset, torch.device(f"cuda:{gpu_idx}")))
 
     folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
-
     # keep track of which GPU is free
     active: dict[int, mp.Process] = {}
 
@@ -470,12 +466,13 @@ def train_on_all_folds(
 
 if __name__ == "__main__":
     seed_everything(SEED)
-    train_dataset, seq_meta = split_dataset()["expert_train"]
+    train_split, seq_meta = split_dataset()["train"]
+    train_datasets = get_fold_datasets(train_split)
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
+        train_datasets,
         DEFLT_LR_SCHEDULER_HP_KW,
         DEFLT_OPTIMIZER_HP_KW,
         DEFLT_TRAINING_HP_KW,
-        train_dataset,
         seq_meta,
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
