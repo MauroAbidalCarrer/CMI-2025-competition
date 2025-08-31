@@ -11,6 +11,7 @@ from typing import Literal
 import kagglehub 
 import numpy as np
 import pandas as pd
+from numpy.fft import fft
 from numpy import ndarray
 from numpy.linalg import norm
 from pandas import DataFrame as DF
@@ -34,7 +35,6 @@ def imputed_features(df:DF) -> DF:
     # Missing ToF values are already imputed by -1 which is inconvinient since we want all missing values to be NaN.    
     # So we replace them by NaN and then perform imputing.  
     tof_vals_to_nan = {col: -1.0 for col in df.columns if col.startswith("tof")}
-    # fillna_val_per_col = {col: 1.0 if col == 'rot_w' else 0 for col in df.columns}
 
     df[get_feature_cols(df)] = (
         df
@@ -50,6 +50,29 @@ def imputed_features(df:DF) -> DF:
         .fillna(get_fillna_val_per_feature_col(df))
     )
     return df
+
+def computeseq_cross_axis_energy(df: DF) -> DF:
+    axes=['x', 'y', 'z']
+    features = {}
+    for axis in axes:
+        fft_result = fft(df[f'acc_{axis}'].values)
+        energy = np.sum(np.abs(fft_result)**2)
+        features[f"er_{axis}"] = energy
+    for i, axis1 in enumerate(axes):
+        for axis2 in axes[i+1:]:
+            features[f'er_r_{axis1}{axis2}'] = features[f'er_{axis1}'] / (features[f'er_{axis2}'] + 1e-6)
+    for i, axis1 in enumerate(axes):
+        for axis2 in axes[i+1:]:
+            features[f'er_c_{axis1}{axis2}'] = np.corrcoef(np.abs(fft(df[f'acc_{axis1}'].values)), np.abs(fft(df[f'acc_{axis2}'].values)))[0, 1]
+    return pd.Series(features)
+
+def add_cross_axis_energy(df: DF) -> DF:
+    seq_cross_axis_energy = (
+        df
+        .groupby("sequence_id", as_index=False, observed=False)
+        .apply(computeseq_cross_axis_energy, include_groups=False)
+    )
+    return df.merge(seq_cross_axis_energy, how="left", on="sequence_id")
 
 def standardize_tof_cols_names(df: DF) -> DF:
     renamed_cols = {}
@@ -68,10 +91,11 @@ def norm_quat_rotations(df:DF) -> DF:
     df[QUATERNION_COLS] /= np.linalg.norm(df[QUATERNION_COLS], axis=1, keepdims=True)
     return df
 
-def add_linear_acc_cols(df:DF) -> DF:
+def add_linear_acc_cols_and_gravity(df:DF) -> DF:
     # Vectorized version of https://www.kaggle.com/code/wasupandceacar/lb-0-82-5fold-single-bert-model#Dataset `remove_gravity_from_acc`
     rotations:Rotation = Rotation.from_quat(df[QUATERNION_COLS])
     gravity_sensor_frame = rotations.apply(GRAVITY_WORLD, inverse=True).astype("float32")
+    df[GRAVITY_COLS] = gravity_sensor_frame
     df[LINEAR_ACC_COLS] = df[RAW_ACCELRATION_COLS] - gravity_sensor_frame
     return df
 
@@ -239,7 +263,8 @@ def preprocess_competition_dataset() -> DF:
         .pipe(imputed_features)
         .pipe(standardize_tof_cols_names)
         .pipe(norm_quat_rotations)
-        .pipe(add_linear_acc_cols)
+        .pipe(add_cross_axis_energy)
+        .pipe(add_linear_acc_cols_and_gravity)
         .pipe(add_acc_magnitude, RAW_ACCELRATION_COLS, "acc_mag")
         .pipe(add_acc_magnitude, LINEAR_ACC_COLS, "linear_acc_mag")
         .pipe(add_quat_angle_mag)
