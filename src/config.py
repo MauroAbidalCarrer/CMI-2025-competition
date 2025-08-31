@@ -37,6 +37,7 @@ BFRB_GESTURES = [
     'Cheek - pinch skin'
 ]
 NON_BFRB_GESTURES = list(set(TARGET_NAMES) - set(BFRB_GESTURES))
+TARGET_NAMES = BFRB_GESTURES + NON_BFRB_GESTURES
 BFRB_INDICES = [idx for idx, gesture in enumerate(TARGET_NAMES) if gesture in BFRB_GESTURES]
 IMU_FEATS_PREFIXES = (
     "acc",
@@ -51,6 +52,7 @@ QUATERNION_COLS = ['rot_w', 'rot_x', 'rot_y', 'rot_z']
 GRAVITY_WORLD = np.array([0, 0, 9.81], "float32")
 RAW_ACCELRATION_COLS = ["acc_x", "acc_y", "acc_z"]
 LINEAR_ACC_COLS = ["linear_" + col for col in RAW_ACCELRATION_COLS] # Acceleration without gravity
+GRAVITY_COLS = ["gravity_x", "gravity_y", "gravity_z"]
 COMPETITION_HANDLE = "cmi-detect-behavior-with-sensor-data"
 CATEGORY_COLUMNS = [
     'row_id',
@@ -119,7 +121,7 @@ SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 20
+N_FOLDS = 18
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8
