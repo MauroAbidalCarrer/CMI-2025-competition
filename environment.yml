@@ -29,6 +29,5 @@ dependencies:
   - pip
   - pip:
     # install kagglehub through pip to get the lateset version.
-    # - timm==1.0.19
-    - kagglehub==0.3.12
+    - kagglehub==0.3.13
     - -e .
