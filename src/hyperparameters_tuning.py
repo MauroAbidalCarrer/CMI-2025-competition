@@ -42,8 +42,8 @@ class FoldPruner(BasePruner):
 
 def objective(
         trial: optuna.trial.Trial,
-        train_datasets: list[TensorDataset],
-        train_seq_meta:DF,
+        # train_datasets: list[TensorDataset],
+        # train_seq_meta:DF,
         preprocessed_meta_data: dict,
         val_loader: DL,
         val_device: torch.device,
@@ -66,7 +66,7 @@ def objective(
     }
     
     train_on_all_folds(
-        train_datasets,
+        "train",
         training_kw=DEFLT_TRAINING_HP_KW | train_kw,
         lr_scheduler_kw=DEFLT_LR_SCHEDULER_HP_KW | lr_scheduler_kw,
         optimizer_kw={
@@ -74,7 +74,7 @@ def objective(
             'beta_0': trial.suggest_float("beta_0", 0.8101978952748745, 0.8201978952748745, step=0.001),
             'beta_1': trial.suggest_float("beta_1", 0.9855729096966865, 0.9955729096966865, step=0.001),
         },
-        seq_meta=train_seq_meta,
+        # seq_meta=train_seq_meta,
     )
     ensemble = mk_model_ensemble("models", val_device)
     val_metrics = evaluate_model(preprocessed_meta_data, ensemble, val_loader, torch.nn.CrossEntropyLoss(), val_device)
@@ -84,14 +84,14 @@ if __name__ == "__main__":
     study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
     splits = split_dataset()
     val_device = torch.device("cuda")
-    train_datasets = get_fold_datasets(splits["train"][0])
+    # train_datasets = get_fold_datasets(splits["train"][0])
     val_dataset = move_cmi_dataset(splits["validation"][0], val_device)
     val_loader = DL(val_dataset, VALIDATION_BATCH_SIZE, shuffle=True)
     preprocessed_meta_data = get_meta_data()
     part_objective = partial(
         objective,
-        train_datasets=train_datasets,
-        train_seq_meta=splits["train"][1],
+        # train_datasets=train_datasets,
+        # train_seq_meta=splits["train"][1],
         val_loader=val_loader,
         preprocessed_meta_data=preprocessed_meta_data,
         val_device=val_device,
