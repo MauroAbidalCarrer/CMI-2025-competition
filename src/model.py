@@ -120,9 +120,9 @@ class CMIHARModule(nn.Module):
         self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
-        # self.bfrb_targets_head = MLPhead(mlp_width, len(BFRB_GESTURES))
-        # self.non_bfrb_targets_head = MLPhead(mlp_width, len(NON_BFRB_GESTURES))
-        self.main_head = MLPhead(mlp_width, 18)
+        self.bfrb_targets_head = MLPhead(mlp_width, len(BFRB_GESTURES))
+        self.non_bfrb_targets_head = MLPhead(mlp_width, len(NON_BFRB_GESTURES))
+        # self.main_head = MLPhead(mlp_width, 18)
         self.aux_orientation_head = MLPhead(mlp_width, self.meta_data["n_orient_classes"])
         self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
         self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
@@ -174,8 +174,13 @@ class CMIHARModule(nn.Module):
         lstm_output = lstm_output.swapaxes(1, 2) # redundant
         attended = self.attention(lstm_output)
         return (
-            self.main_head(attended),
-            # torch.concat(self.bfrb_targets_head())
+            torch.concat(
+                (
+                    self.bfrb_targets_head(attended),
+                    self.non_bfrb_targets_head(attended),
+                ),
+                dim=1
+            ),
             self.aux_orientation_head(attended),
             self.binary_demographics_head(attended),
             (self.regres_demographics_head(attended) * self.reg_demos_y_std) + self.reg_demos_y_mean,
