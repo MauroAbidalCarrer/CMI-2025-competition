@@ -122,7 +122,7 @@ SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 18
+N_FOLDS = 24
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8
@@ -146,6 +146,7 @@ FOLDS_VAL_SCORE_ORDER = {
 KAGGLE_USERNAME = "mauroabidalcarrer"
 MODEL_NAME = "cmi-model"
 MODEL_VARIATION = "single_model_architecture"
+DFLT_MODEL_HP_KW = {"group_thm_branch": True}
 DEFLT_LR_SCHEDULER_HP_KW={
     'warmup_epochs': 15,
     'cycle_mult': 1.0,

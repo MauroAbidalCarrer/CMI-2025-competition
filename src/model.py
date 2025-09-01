@@ -98,6 +98,7 @@ class CMIHARModule(nn.Module):
             tof_dropout_ratio:float=0,
             thm_dropout_ratio:float=0,
             imu_dropout_ratio:float=0,
+            group_thm_branch=True,
         ):
         super().__init__()
         get_meta_data
@@ -117,7 +118,7 @@ class CMIHARModule(nn.Module):
             ResidualBlock(219, 500, imu_dropout_ratio),
         )
         self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 100, 500], tof_dropout_ratio, groups=N_TOF_SENSORS)
-        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 100, 500], thm_dropout_ratio, groups=N_THM_SENSORS)
+        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 100, 500], thm_dropout_ratio, groups=N_THM_SENSORS if group_thm_branch else 1)
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
         self.bfrb_targets_head = MLPhead(mlp_width, len(BFRB_GESTURES))
@@ -189,6 +190,7 @@ def mk_model(
         dataset_x:Optional[Tensor]=None,
         reg_demos_dataset_y:Optional[Tensor]=None,
         device:Optional[torch.device]=None,
+        group_thm_branch=True,
     ) -> nn.Module:
     model = CMIHARModule(
         mlp_width=256,
@@ -197,6 +199,7 @@ def mk_model(
         imu_dropout_ratio=0.2,
         tof_dropout_ratio=0.2,
         thm_dropout_ratio=0.2,
+        group_thm_branch=group_thm_branch,
     )
     if device is not None:
         model = model.to(device)
@@ -209,10 +212,10 @@ class ModelEnsemble(nn.ModuleList):
         outputs: tuple[Tensor] = tuple(map(partial(torch.mean, dim=0), outputs))
         return outputs
         
-def mk_model_ensemble(parent_dir: str, device: torch.device) -> ModelEnsemble:
+def mk_model_ensemble(parent_dir: str, device: torch.device, model_kw=DFLT_MODEL_HP_KW) -> ModelEnsemble:
     models = []
     for fold_idx in range(N_FOLDS):
-        model = mk_model().to(device)
+        model = mk_model(**model_kw).to(device)
         checkpoint = torch.load(
             join(
                 parent_dir,

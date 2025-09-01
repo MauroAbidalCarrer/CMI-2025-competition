@@ -355,6 +355,7 @@ def train_on_single_fold(
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
+        model_kw: dict,
         seed:int,
         gpu_id:int,
     ) -> tuple[DF, DF]:
@@ -369,7 +370,7 @@ def train_on_single_fold(
     train_x = train_dataset.tensors[0]
     train_reg_demos_y = train_dataset.tensors[4]
     device = torch.device(f"cuda:{gpu_id}")
-    model = mk_model(train_x, train_reg_demos_y, device)
+    model = mk_model(train_x, train_reg_demos_y, device, **model_kw)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         WARMUP_LR_INIT,
@@ -401,12 +402,11 @@ def load_metrics(name_format:str) -> DF:
     return all_metrics
 
 def train_on_all_folds(
-        # train_datasets: list[TensorDataset],
         split:str,
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
-        # seq_meta: DF,
+        model_kw: dict,
     ) -> None:
     start_time = time()
     seed_everything(seed=SEED)
@@ -439,12 +439,12 @@ def train_on_all_folds(
             args=(
                 fold_idx,
                 train_dataset,
-                # train_datasets[gpu_idx],
                 train_idx,
                 validation_idx,
                 lr_scheduler_kw,
                 optimizer_kw,
                 training_kw,
+                model_kw,
                 seed,
                 gpu_idx,
             )
@@ -480,7 +480,7 @@ if __name__ == "__main__":
         DEFLT_LR_SCHEDULER_HP_KW,
         DEFLT_OPTIMIZER_HP_KW,
         DEFLT_TRAINING_HP_KW,
-        # seq_meta,
+        DFLT_MODEL_HP_KW,
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
