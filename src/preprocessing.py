@@ -63,7 +63,7 @@ def compute_seq_cross_axis_energy(df: DF, cols_preffix: str) -> DF:
         axis_1_col = cols_preffix + axis1
         for axis2 in axes[i+1:]:
             axis_2_col = cols_preffix + axis2
-            features[f'er_r_{axis_1_col}{axis_2_col}'] = features[f'er_{axis_1_col}'] / (features[f'er_{axis_2_col}'] + 1e-6)
+            features[f'er_r_{axis_1_col}_{axis_2_col}'] = features[f'er_{axis_1_col}'] / (features[f'er_{axis_2_col}'] + 1e-6)
     for i, axis1 in enumerate(axes):
         axis_1_col = cols_preffix + axis1
         for axis2 in axes[i+1:]:
