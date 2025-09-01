@@ -117,12 +117,11 @@ class CMIHARModule(nn.Module):
             ResidualBlock(219, 500, imu_dropout_ratio),
         )
         self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 100, 500], tof_dropout_ratio, groups=N_TOF_SENSORS)
-        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
+        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 100, 500], thm_dropout_ratio, groups=N_THM_SENSORS)
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
         self.bfrb_targets_head = MLPhead(mlp_width, len(BFRB_GESTURES))
         self.non_bfrb_targets_head = MLPhead(mlp_width, len(NON_BFRB_GESTURES))
-        # self.main_head = MLPhead(mlp_width, 18)
         self.aux_orientation_head = MLPhead(mlp_width, self.meta_data["n_orient_classes"])
         self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
         self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
