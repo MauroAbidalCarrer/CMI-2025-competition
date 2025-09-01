@@ -26,7 +26,7 @@ from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from dataset import sgkf_cmi_dataset, split_dataset, get_fold_datasets
+from dataset import sgkf_cmi_dataset, split_dataset, get_fold_datasets, move_cmi_dataset, copy_subset
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -359,11 +359,15 @@ def train_on_single_fold(
         gpu_id:int,
     ) -> tuple[DF, DF]:
     seed_everything(seed)
+    train_dataset = copy_subset(full_dataset, train_idx)
+    validation_dataset = copy_subset(full_dataset, validation_idx)
+    device = torch.device(f"cuda:{gpu_id}")
+    train_dataset = move_cmi_dataset(train_dataset, device)
+    validation_dataset = move_cmi_dataset(validation_dataset, device)
+
     criterion = torch.nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
-    train_dataset = Subset(full_dataset, train_idx)
-    validation_dataset = Subset(full_dataset, validation_idx)
-    train_x = train_dataset.dataset.tensors[0][train_dataset.indices]
-    train_reg_demos_y = train_dataset.dataset.tensors[4][train_dataset.indices]
+    train_x = train_dataset.tensors[0]
+    train_reg_demos_y = train_dataset.tensors[4]
     device = torch.device(f"cuda:{gpu_id}")
     model = mk_model(train_x, train_reg_demos_y, device)
     optimizer = torch.optim.AdamW(
@@ -397,18 +401,20 @@ def load_metrics(name_format:str) -> DF:
     return all_metrics
 
 def train_on_all_folds(
-        train_datasets: list[TensorDataset],
+        # train_datasets: list[TensorDataset],
+        split:str,
         lr_scheduler_kw: dict,
         optimizer_kw: dict,
         training_kw: dict,
-        seq_meta: DF,
+        # seq_meta: DF,
     ) -> None:
     start_time = time()
     seed_everything(seed=SEED)
     ctx = mp.get_context("spawn")
     gpus = range(torch.cuda.device_count())
 
-    folds_it = list(sgkf_cmi_dataset(train_datasets[0], seq_meta, N_FOLDS))
+    train_dataset, seq_meta = split_dataset()[split]
+    folds_it = list(sgkf_cmi_dataset(train_dataset, seq_meta, N_FOLDS))
     processes: list[mp.Process] = []
     # keep track of which GPU is free
     active: dict[int, mp.Process] = {}
@@ -432,7 +438,8 @@ def train_on_all_folds(
             target=train_on_single_fold,
             args=(
                 fold_idx,
-                train_datasets[gpu_idx],
+                train_dataset,
+                # train_datasets[gpu_idx],
                 train_idx,
                 validation_idx,
                 lr_scheduler_kw,
@@ -466,14 +473,30 @@ def train_on_all_folds(
 
 if __name__ == "__main__":
     seed_everything(SEED)
-    train_split, seq_meta = split_dataset()["train"]
-    train_datasets = get_fold_datasets(train_split)
+    # train_split, seq_meta = split_dataset()["train"]
+    # train_datasets = get_fold_datasets(train_split)
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
-        train_datasets,
+        "train",
         DEFLT_LR_SCHEDULER_HP_KW,
         DEFLT_OPTIMIZER_HP_KW,
         DEFLT_TRAINING_HP_KW,
-        seq_meta,
+        # seq_meta,
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")
     print("saved sequence metrics data frame.")
+    user_input = input("Upload model ensemble?: ").lower()
+    if user_input == "yes":
+        kagglehub.model_upload(
+            handle=join(
+                kagglehub.whoami()["username"],
+                MODEL_NAME,
+                "pyTorch",
+                MODEL_VARIATION,
+            ),
+            local_model_dir="models",
+            version_notes=input("Please provide model version notes: ")
+        )
+    elif user_input == "no":
+        print("Model has not been uploaded to kaggle.")
+    else:
+        print("User input was not understood, model has not been uploaded to kaggle.")

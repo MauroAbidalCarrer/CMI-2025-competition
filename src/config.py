@@ -37,6 +37,7 @@ BFRB_GESTURES = [
     'Cheek - pinch skin'
 ]
 NON_BFRB_GESTURES = list(set(TARGET_NAMES) - set(BFRB_GESTURES))
+TARGET_NAMES = BFRB_GESTURES + NON_BFRB_GESTURES
 BFRB_INDICES = [idx for idx, gesture in enumerate(TARGET_NAMES) if gesture in BFRB_GESTURES]
 IMU_FEATS_PREFIXES = (
     "acc",
@@ -51,6 +52,7 @@ QUATERNION_COLS = ['rot_w', 'rot_x', 'rot_y', 'rot_z']
 GRAVITY_WORLD = np.array([0, 0, 9.81], "float32")
 RAW_ACCELRATION_COLS = ["acc_x", "acc_y", "acc_z"]
 LINEAR_ACC_COLS = ["linear_" + col for col in RAW_ACCELRATION_COLS] # Acceleration without gravity
+GRAVITY_COLS = ["gravity_x", "gravity_y", "gravity_z"]
 COMPETITION_HANDLE = "cmi-detect-behavior-with-sensor-data"
 CATEGORY_COLUMNS = [
     'row_id',
@@ -119,7 +121,7 @@ SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 20
+N_FOLDS = 18
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8
@@ -144,25 +146,25 @@ KAGGLE_USERNAME = "mauroabidalcarrer"
 MODEL_NAME = "cmi-model"
 MODEL_VARIATION = "single_model_architecture"
 DEFLT_LR_SCHEDULER_HP_KW={
-    'warmup_epochs': 14,
-    'cycle_mult': 0.9,
-    'max_lr': 0.00652127195137508,
-    'init_cycle_epochs': 4,
-    'lr_cycle_factor': 0.45,
+    'warmup_epochs': 15,
+    'cycle_mult': 1.0,
+    'init_cycle_epochs': 10,
+    'max_lr': 0.00752127195137508,
+    'lr_cycle_factor': 0.5,
     'max_to_min_div_factor': 250,
 }
 DEFLT_OPTIMIZER_HP_KW={
-    'weight_decay': 0.000981287923867241, 
-    'beta_0': 0.8141978952748745,
-    'beta_1': 0.9905729096966865,
+    'weight_decay': 0.000991287923867241,
+    'beta_0': 0.8161978952748745,
+    'beta_1': 0.9875729096966865,
 }
 DEFLT_TRAINING_HP_KW={
-    'orient_loss_weight': 1.0,
-    "sex_loss_weight": 0.6,
-    "handedness_loss_weight": 0.5,
-    "arm_length_ratio_loss_weight": 0.6,
-    "elbow_to_wrist_ratio_loss_weight": 0.6,
-    "shoulder_to_elbow_ratio_loss_weight": 0.6,
+    'orient_loss_weight': 0.30000000000000004,
+    'sex_loss_weight': 0.2,
+    'handedness_loss_weight': 0.0, 
+    "arm_length_ratio_loss_weight": 0.0,
+    "elbow_to_wrist_ratio_loss_weight": 0.0,
+    "shoulder_to_elbow_ratio_loss_weight": 0.0,
     "height_cm_loss_weight": 0.0,
     "age_loss_weight": 0,
 }
