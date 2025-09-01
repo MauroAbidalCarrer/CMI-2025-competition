@@ -51,26 +51,31 @@ def imputed_features(df:DF) -> DF:
     )
     return df
 
-def computeseq_cross_axis_energy(df: DF) -> DF:
+def compute_seq_cross_axis_energy(df: DF, cols_preffix: str) -> DF:
     axes=['x', 'y', 'z']
     features = {}
     for axis in axes:
-        fft_result = fft(df[f'acc_{axis}'].values)
+        axis_col = cols_preffix + axis
+        fft_result = fft(df[cols_preffix + axis].values)
         energy = np.sum(np.abs(fft_result)**2)
-        features[f"er_{axis}"] = energy
+        features["er_" + axis_col] = energy
     for i, axis1 in enumerate(axes):
+        axis_1_col = cols_preffix + axis1
         for axis2 in axes[i+1:]:
-            features[f'er_r_{axis1}{axis2}'] = features[f'er_{axis1}'] / (features[f'er_{axis2}'] + 1e-6)
+            axis_2_col = cols_preffix + axis2
+            features[f'er_r_{axis_1_col}{axis_2_col}'] = features[f'er_{axis_1_col}'] / (features[f'er_{axis_2_col}'] + 1e-6)
     for i, axis1 in enumerate(axes):
+        axis_1_col = cols_preffix + axis1
         for axis2 in axes[i+1:]:
-            features[f'er_c_{axis1}{axis2}'] = np.corrcoef(np.abs(fft(df[f'acc_{axis1}'].values)), np.abs(fft(df[f'acc_{axis2}'].values)))[0, 1]
+            axis_2_col = cols_preffix + axis2
+            features[f'er_c_{axis_1_col}{axis_2_col}'] = np.corrcoef(np.abs(fft(df[axis_1_col].values)), np.abs(fft(df[axis_2_col].values)))[0, 1]
     return pd.Series(features)
 
-def add_cross_axis_energy(df: DF) -> DF:
+def add_cross_axis_energy(df: DF, acc_cols_preffix: str) -> DF:
     seq_cross_axis_energy = (
         df
         .groupby("sequence_id", as_index=False, observed=False)
-        .apply(computeseq_cross_axis_energy, include_groups=False)
+        .apply(compute_seq_cross_axis_energy, acc_cols_preffix, include_groups=False)
     )
     return df.merge(seq_cross_axis_energy, how="left", on="sequence_id")
 
@@ -247,7 +252,6 @@ def preprocess_competition_dataset() -> DF:
         .pipe(imputed_features)
         .pipe(standardize_tof_cols_names)
         .pipe(norm_quat_rotations)
-        .pipe(add_cross_axis_energy)
         .pipe(add_linear_acc_cols_and_gravity)
         .pipe(add_acc_magnitude, RAW_ACCELRATION_COLS, "acc_mag")
         .pipe(add_acc_magnitude, LINEAR_ACC_COLS, "linear_acc_mag")
@@ -257,6 +261,9 @@ def preprocess_competition_dataset() -> DF:
         .pipe(add_quat_angle_mag)
         .pipe(one_hot_encode_targets)
         .pipe(agg_tof_cols_per_sensor)
+        .pipe(add_cross_axis_energy, "acc_")
+        .pipe(add_cross_axis_energy, "linear_acc_")
+        .pipe(add_cross_axis_energy, "euler_")
     )
 
 def preprocess_demographics(demos:DF) -> DF:
