@@ -175,22 +175,6 @@ def agg_tof_cols_per_sensor(df:DF) -> DF:
         )
     return df
 
-def add_diff_features(df:DF) -> DF:
-    return pd.concat(
-        (
-            df,
-            (
-                df
-                .groupby("sequence_id", as_index=False, observed=True)
-                [get_feature_cols(df)]
-                .diff()
-                .fillna(get_fillna_val_per_feature_col(df))
-                .add_suffix("_diff")
-            )
-        ),
-        axis="columns",
-    )
-
 def one_hot_encode_targets(df:DF) -> DF:
     one_hot_target = pd.get_dummies(df["gesture"], dtype="float32")
     df[TARGET_NAMES] = one_hot_target[TARGET_NAMES]
