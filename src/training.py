@@ -477,9 +477,9 @@ if __name__ == "__main__":
     # train_datasets = get_fold_datasets(train_split)
     mean_val_score, epoch_metrics, seq_metrics = train_on_all_folds(
         "train",
-        DEFLT_LR_SCHEDULER_HP_KW,
-        DEFLT_OPTIMIZER_HP_KW,
-        DEFLT_TRAINING_HP_KW,
+        DFLT_LR_SCHEDULER_HP_KW,
+        DFLT_OPTIMIZER_HP_KW,
+        DFLT_TRAINING_HP_KW,
         DFLT_MODEL_HP_KW,
     )
     seq_metrics.to_parquet("seq_meta_data_metrics.parquet")

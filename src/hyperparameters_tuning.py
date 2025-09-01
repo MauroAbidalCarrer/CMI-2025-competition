@@ -65,21 +65,21 @@ def objective(
         "orient_loss_weight": suggest_offseted_hp(
             trial.suggest_float,
             "orient_loss_weight",
-            DEFLT_TRAINING_HP_KW,
+            DFLT_TRAINING_HP_KW,
             offset=0.15,
             step=0.1,
         ),
         "sex_loss_weight": suggest_offseted_hp(
             trial.suggest_float,
             "sex_loss_weight",
-            DEFLT_TRAINING_HP_KW,
+            DFLT_TRAINING_HP_KW,
             offset=0.2,
             step=0.1,
         ),
         "handedness_loss_weight": suggest_offseted_hp(
             trial.suggest_float,
             "handedness_loss_weight",
-            DEFLT_TRAINING_HP_KW,
+            DFLT_TRAINING_HP_KW,
             offset=0.2,
             step=0.1,
         )
@@ -91,7 +91,7 @@ def objective(
         "max_lr": suggest_offseted_hp(
             trial.suggest_float,
             "max_lr",
-            DEFLT_LR_SCHEDULER_HP_KW,
+            DFLT_LR_SCHEDULER_HP_KW,
             0.001,
             step=0.0001
         ),
@@ -101,8 +101,8 @@ def objective(
 
     train_on_all_folds(
         "train",
-        training_kw=DEFLT_TRAINING_HP_KW | train_kw,
-        lr_scheduler_kw=DEFLT_LR_SCHEDULER_HP_KW | lr_scheduler_kw,
+        training_kw=DFLT_TRAINING_HP_KW | train_kw,
+        lr_scheduler_kw=DFLT_LR_SCHEDULER_HP_KW | lr_scheduler_kw,
         optimizer_kw={
             'weight_decay': trial.suggest_float("weight_decay", 0.000901287923867241, 0.001001287923867241, step=0.00001), 
             'beta_0': trial.suggest_float("beta_0", 0.8101978952748745, 0.8201978952748745, step=0.001),

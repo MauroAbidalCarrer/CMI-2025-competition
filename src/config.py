@@ -122,7 +122,7 @@ SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 24
+N_FOLDS = 20
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8
@@ -147,22 +147,22 @@ KAGGLE_USERNAME = "mauroabidalcarrer"
 MODEL_NAME = "cmi-model"
 MODEL_VARIATION = "single_model_architecture"
 DFLT_MODEL_HP_KW = {"group_thm_branch": True}
-DEFLT_LR_SCHEDULER_HP_KW={
-    'warmup_epochs': 15,
-    'cycle_mult': 1.0,
-    'init_cycle_epochs': 10,
-    'max_lr': 0.00752127195137508,
+DFLT_LR_SCHEDULER_HP_KW={
+    'warmup_epochs': 17,
+    'cycle_mult': 1.3,
+    'init_cycle_epochs': 6,
+    'max_lr': 0.00832127195137508,
     'lr_cycle_factor': 0.5,
     'max_to_min_div_factor': 250,
 }
-DEFLT_OPTIMIZER_HP_KW={
-    'weight_decay': 0.000991287923867241,
+DFLT_OPTIMIZER_HP_KW={
+    'weight_decay': 0.0009212879238672411,
     'beta_0': 0.8161978952748745,
-    'beta_1': 0.9875729096966865,
+    'beta_1': 0.9935729096966865,
 }
-DEFLT_TRAINING_HP_KW={
-    'orient_loss_weight': 0.30000000000000004,
-    'sex_loss_weight': 0.2,
+DFLT_TRAINING_HP_KW={
+    'orient_loss_weight': 0.15000000000000005,
+    'sex_loss_weight': 0.1,
     'handedness_loss_weight': 0.0, 
     "arm_length_ratio_loss_weight": 0.0,
     "elbow_to_wrist_ratio_loss_weight": 0.0,
