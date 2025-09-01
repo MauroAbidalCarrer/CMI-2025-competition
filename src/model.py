@@ -67,10 +67,10 @@ class AdditiveAttentionLayer(nn.Module):
         return context
 
 class AlexNet(nn.Sequential):
-    def __init__(self, channels:list[int], dropout_ratio:float):
+    def __init__(self, channels:list[int], dropout_ratio:float, groups:int=1):
         def mk_conv_block(in_channels:int, out_channels:int) -> nn.Module:
             return nn.Sequential(
-                nn.Conv1d(in_channels, out_channels, 3, padding=1, bias=False),
+                nn.Conv1d(in_channels, out_channels, 3, padding=1, groups=groups, bias=False),
                 nn.BatchNorm1d(out_channels),
                 nn.MaxPool1d(2),
                 nn.Dropout(dropout_ratio),
@@ -116,11 +116,13 @@ class CMIHARModule(nn.Module):
             ResidualBlock(len(self.meta_data["imu_idx"]), 219, imu_dropout_ratio),
             ResidualBlock(219, 500, imu_dropout_ratio),
         )
-        self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 82, 500], tof_dropout_ratio)
+        self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 100, 500], tof_dropout_ratio, groups=N_TOF_SENSORS)
         self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 82, 500], thm_dropout_ratio)
         self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
         self.attention = AdditiveAttentionLayer(mlp_width)
-        self.main_head = MLPhead(mlp_width, 18)
+        self.bfrb_targets_head = MLPhead(mlp_width, len(BFRB_GESTURES))
+        self.non_bfrb_targets_head = MLPhead(mlp_width, len(NON_BFRB_GESTURES))
+        # self.main_head = MLPhead(mlp_width, 18)
         self.aux_orientation_head = MLPhead(mlp_width, self.meta_data["n_orient_classes"])
         self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
         self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
@@ -172,7 +174,13 @@ class CMIHARModule(nn.Module):
         lstm_output = lstm_output.swapaxes(1, 2) # redundant
         attended = self.attention(lstm_output)
         return (
-            self.main_head(attended),
+            torch.concat(
+                (
+                    self.bfrb_targets_head(attended),
+                    self.non_bfrb_targets_head(attended),
+                ),
+                dim=1
+            ),
             self.aux_orientation_head(attended),
             self.binary_demographics_head(attended),
             (self.regres_demographics_head(attended) * self.reg_demos_y_std) + self.reg_demos_y_mean,
