@@ -3,15 +3,15 @@ import math
 from time import time
 from os.path import join
 from collections import defaultdict
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 import torch
-import optuna
 import kagglehub 
 import numpy as np
 import pandas as pd
 from numpy import ndarray
 from torch import nn, Tensor
+import torch.nn.functional as F
 from torch.optim import Optimizer
 import torch.multiprocessing as mp
 from pandas import DataFrame as DF
@@ -20,13 +20,12 @@ from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader as DL
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import Dataset, TensorDataset
-from sklearn.model_selection import StratifiedGroupKFold
 
 from config import *
 from model import mk_model
 from utils import seed_everything
 from preprocessing import get_meta_data
-from dataset import sgkf_cmi_dataset, split_dataset, get_fold_datasets, move_cmi_dataset, copy_subset
+from dataset import sgkf_cmi_dataset, split_dataset, move_cmi_dataset, copy_subset
 
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
@@ -129,11 +128,124 @@ def mixup_data(
 
     return mixed_tensors
 
+class FocalLoss(nn.Module):
+    """
+    Multi-class focal loss with optional class re-weighting computed from
+    one-hot training targets (inverse-frequency normalization).
+
+    Args:
+        y_one_hot: Tensor-like of shape (N_samples, n_classes)
+                   Used to compute per-class inverse-frequency alpha if `alpha` is None.
+        alpha: Optional[float] or 1D Tensor of shape (n_classes,).
+               If None, alpha is computed from `y_one_hot` as inverse frequency normalized to sum=1.
+               If float, that scalar will be broadcast to all classes (useful to provide a constant).
+               If Tensor, must be shape (n_classes,) and will be used directly (will be registered as buffer).
+        gamma: focusing parameter (default 2.0).
+        eps: small numeric stability constant.
+    """
+    def __init__(
+        self,
+        y_one_hot: Union[torch.Tensor, 'np.ndarray'],
+        alpha: Optional[Union[float, torch.Tensor]] = None,
+        gamma: float = 2.0,
+        eps: float = 1e-8,
+    ):
+        super().__init__()
+        # convert y_one_hot to torch tensor if needed
+        if not torch.is_tensor(y_one_hot):
+            y_one_hot = torch.as_tensor(y_one_hot)
+        if y_one_hot.dim() != 2:
+            raise ValueError("y_one_hot must be shape (N_samples, n_classes)")
+
+        # compute default alpha from inverse class frequency if alpha not provided
+        counts = y_one_hot.sum(dim=0).float()  # (n_classes,)
+        n_classes = counts.numel()
+        if alpha is None:
+            freq = counts / (counts.sum() + eps)
+            inv_freq = 1.0 / (freq + eps)
+            alpha_per_class = inv_freq / inv_freq.sum()  # normalize sum=1 for stability
+            alpha_tensor = alpha_per_class
+        else:
+            if isinstance(alpha, float) or isinstance(alpha, int):
+                alpha_tensor = torch.full((n_classes,), float(alpha), dtype=torch.float32)
+            else:
+                alpha_tensor = torch.as_tensor(alpha, dtype=torch.float32)
+                if alpha_tensor.numel() != n_classes:
+                    raise ValueError("Provided alpha tensor must have length n_classes")
+
+        # register alpha as buffer so it moves with .to(device)
+        self.register_buffer("alpha", alpha_tensor.float())
+        self.gamma = float(gamma)
+        self.eps = float(eps)
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        y_true: torch.Tensor,
+        reduction: Literal["mean", "none"] = "mean",
+    ) -> torch.Tensor:
+        """
+        Compute focal loss.
+
+        y_pred: logits with shape (B, C, *spatial)
+        y_true: either
+            - class indices with shape (B, *spatial) (dtype long), or
+            - one-hot with shape (B, C, *spatial)
+        reduction: "mean" or "none"
+        """
+        if reduction not in ("mean", "none"):
+            raise ValueError("reduction must be 'mean' or 'none'")
+
+        # Save original shape to restore when reduction="none"
+        orig_pred_shape = y_pred.shape  # (B, C, ...)
+        B = y_pred.size(0)
+        C = y_pred.size(1)
+        # flatten trailing spatial dims
+        pred_flat = y_pred.reshape(B, C, -1).permute(0, 2, 1).reshape(-1, C)  # (N, C)
+        N = pred_flat.size(0)
+
+        # log-probs and probs (stable)
+        log_p = F.log_softmax(pred_flat, dim=1)  # (N, C)
+        p = torch.exp(log_p)                      # (N, C)
+
+        # prepare targets
+        if y_true.dim() == y_pred.dim() and y_true.shape[1] == C:
+            # one-hot case: shape (B, C, *spatial)
+            true_flat = y_true.reshape(B, C, -1).permute(0, 2, 1).reshape(-1, C)  # (N, C)
+            if not true_flat.dtype.is_floating_point:
+                true_flat = true_flat.float()
+            # p_t and log_p_t for each sample
+            p_t = (p * true_flat).sum(dim=1).clamp(min=self.eps)        # (N,)
+            log_p_t = (log_p * true_flat).sum(dim=1)                   # (N,)
+            # alpha factor per sample
+            alpha_factor = (self.alpha.unsqueeze(0) * true_flat).sum(dim=1)  # (N,)
+        else:
+            # assume class indices (B, *spatial)
+            idx = y_true.reshape(-1).long()  # (N,)
+            # gather p_t and log_p_t
+            p_t = p[torch.arange(N, device=p.device), idx].clamp(min=self.eps)  # (N,)
+            log_p_t = log_p[torch.arange(N, device=p.device), idx]               # (N,)
+            alpha_factor = self.alpha.to(p.device)[idx]                          # (N,)
+
+        # focal loss per sample
+        focal_term = (1.0 - p_t) ** self.gamma
+        loss = - alpha_factor * focal_term * log_p_t  # (N,)
+
+        if reduction == "mean":
+            return loss.mean()
+        else:
+            # reshape back to (B, *spatial)
+            spatial_size = 1
+            if y_pred.dim() > 2:
+                spatial_size = int(torch.tensor(orig_pred_shape[2:]).prod().item())
+            return loss.view(B, spatial_size).reshape(B, *orig_pred_shape[2:])
+
 def train_model_on_single_epoch(
         meta_data:dict,
         model:nn.Module,
         train_loader:DL,
         criterion:callable,
+        orient_criterion:callable,
         optimizer:torch.optim.Optimizer,
         scheduler:_LRScheduler,
         training_kw:dict,
@@ -169,7 +281,7 @@ def train_model_on_single_epoch(
         optimizer.zero_grad()
         outputs, orient_output, bin_demos_output, reg_demos_output = model(batch_x)
         bce = nn.BCEWithLogitsLoss()
-        loss = criterion(outputs, batch_y) + criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] 
+        loss = criterion(outputs, batch_y) + orient_criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] 
         for binary_target_idx, binary_target in enumerate(BINARY_DEMOS_TARGETS):
             bce_loss = bce(bin_demos_output[:, [binary_target_idx]], bin_demos_y[:, [binary_target_idx]])
             loss += bce_loss * training_kw[binary_target + "_loss_weight"]
@@ -210,7 +322,6 @@ def evaluate_model(
 
             y_pred, *_ = model(batch_x)
             loss = criterion(y_pred, y_true)
-            # print('loss dtype:', loss.dtype, "y_pred dtype:", y_pred.dtype)
             eval_metrics["val_loss"] += loss.item() * batch_x.size(0)
             total += batch_x.size(0)
 
@@ -313,6 +424,7 @@ def train_model_on_all_epochs(
         train_dataset:Dataset,
         validation_dataset:Dataset,
         criterion:callable,
+        orient_criterion:callable,
         optimizer:torch.optim.Optimizer,
         scheduler:_LRScheduler,
         fold:int,
@@ -335,7 +447,7 @@ def train_model_on_all_epochs(
     epoch = 0
     for _ in range(TRAINING_EPOCHS):
         epoch += 1
-        train_metrics = train_model_on_single_epoch(meta_data, model, train_loader, criterion, optimizer, scheduler, training_kw, device)
+        train_metrics = train_model_on_single_epoch(meta_data, model, train_loader, criterion, orient_criterion, optimizer, scheduler, training_kw, device)
         validation_metrics = evaluate_model(meta_data, model, validation_loader, criterion, device)
         metrics.append({"fold": fold, "epoch": epoch} | train_metrics | validation_metrics)
         if validation_metrics["final_metric"] > best_metric:
@@ -379,7 +491,9 @@ def train_on_single_fold(
     train_dataset = move_cmi_dataset(train_dataset, device)
     validation_dataset = move_cmi_dataset(validation_dataset, device)
 
-    criterion = torch.nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
+    main_criterion = FocalLoss(train_dataset.tensors[1], gamma=training_kw["focal_gamma"])
+    orient_criterion = nn.CrossEntropyLoss()
+    # criterion = torch.nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
     train_x = train_dataset.tensors[0]
     train_reg_demos_y = train_dataset.tensors[4]
     device = torch.device(f"cuda:{gpu_id}")
@@ -396,7 +510,8 @@ def train_on_single_fold(
         model,
         train_dataset,
         validation_dataset,
-        criterion,
+        main_criterion,
+        orient_criterion,
         optimizer,
         scheduler,
         fold_idx,
