@@ -124,7 +124,7 @@ def objective(
         },
         model_kw=DFLT_MODEL_HP_KW | model_kw,
     )
-    ensemble = mk_model_ensemble("models", val_device, model_kw)
+    ensemble = mk_model_ensemble("models", val_device, DFLT_MODEL_HP_KW | model_kw)
     val_metrics = evaluate_model(preprocessed_meta_data, ensemble, val_loader, torch.nn.CrossEntropyLoss(), val_device)
     return val_metrics["final_metric"]
 

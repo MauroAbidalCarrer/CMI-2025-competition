@@ -240,7 +240,7 @@ class ModelEnsemble(nn.ModuleList):
 def mk_model_ensemble(parent_dir: str, device: torch.device, model_kw=DFLT_MODEL_HP_KW) -> ModelEnsemble:
     models = []
     for fold_idx in range(N_FOLDS):
-        model = mk_model(**model_kw).to(device)
+        model = mk_model(model_kw=model_kw).to(device)
         checkpoint = torch.load(
             join(
                 parent_dir,
