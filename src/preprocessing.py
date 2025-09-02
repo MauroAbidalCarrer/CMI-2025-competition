@@ -263,7 +263,7 @@ def preprocess_competition_dataset() -> DF:
         .pipe(agg_tof_cols_per_sensor)
         .pipe(add_cross_axis_energy, "acc_")
         .pipe(add_cross_axis_energy, "linear_acc_")
-        .pipe(add_cross_axis_energy, "euler_")
+        # .pipe(add_cross_axis_energy, "euler_")
     )
 
 def preprocess_demographics(demos:DF) -> DF:
