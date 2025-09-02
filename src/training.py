@@ -3,7 +3,7 @@ import math
 from time import time
 from os.path import join
 from collections import defaultdict
-from typing import Optional, Iterator
+from typing import Optional, Sequence
 
 import torch
 import optuna
@@ -102,21 +102,34 @@ def mk_scheduler(optimizer:Optimizer, steps_per_epoch:int, lr_scheduler_kw:dict)
     ) 
 
 def mixup_data(
-        *tensors:list[Tensor],
-        alpha=0.2
-    ) -> tuple[Tensor, Tensor] | tuple[Tensor, Tensor, Tensor]:
+    *tensors: Sequence[Tensor],
+    alpha: float = 0.2,
+    ratio: float = 1.0,  # ratio of samples to apply mixup
+    batch_size: int = TRAIN_BATCH_SIZE,
+) -> list[Tensor]:
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1.0
 
-    mix_idx = torch.randperm(TRAIN_BATCH_SIZE).to(tensors[0].device)
+    if batch_size is None:
+        batch_size = tensors[0].size(0)
 
-    def mix_tensor(tensor: Tensor) -> Tensor:
-        tensor[mix_idx] = lam * tensor[mix_idx] + (1 - lam) * tensor[mix_idx]
-        return tensor
-    
-    return list(map(mix_tensor, tensors))
+    device = tensors[0].device
+    # permutation for mixing pairs
+    perm = torch.randperm(batch_size, device=device)
+
+    # choose a subset of indices to mix
+    n_to_mix = int(batch_size * ratio)
+    mix_indices = torch.randperm(batch_size, device=device)[:n_to_mix]
+
+    mixed_tensors = []
+    for tensor in tensors:
+        mixed = tensor.clone()
+        mixed[mix_indices] = lam * tensor[mix_indices] + (1 - lam) * tensor[perm[mix_indices]]
+        mixed_tensors.append(mixed)
+
+    return mixed_tensors
 
 def train_model_on_single_epoch(
         meta_data:dict,
@@ -151,6 +164,7 @@ def train_model_on_single_epoch(
             batch_orientation_y,
             bin_demos_y,
             reg_demos_y,
+            alpha=training_kw["mixup_alpha"]
         )
 
         optimizer.zero_grad()
@@ -370,7 +384,7 @@ def train_on_single_fold(
     train_x = train_dataset.tensors[0]
     train_reg_demos_y = train_dataset.tensors[4]
     device = torch.device(f"cuda:{gpu_id}")
-    model = mk_model(train_x, train_reg_demos_y, device, **model_kw)
+    model = mk_model(train_x, train_reg_demos_y, device, model_kw)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         WARMUP_LR_INIT,
