@@ -180,6 +180,7 @@ DFLT_TRAINING_HP_KW={
     "mixup_alpha": 0.2,
     "mixup_ratio": 1,
     "focal_gamma": 1,
+    "model_ema_decay": 0.8,
 }
 # gating model
 GATING_INPUT_FEATURES = [

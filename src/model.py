@@ -1,3 +1,4 @@
+import copy
 from os.path import join
 from typing import Optional
 from functools import partial
@@ -211,6 +212,23 @@ def mk_model(
     if device is not None:
         model = model.to(device)
     return model
+
+class ModelEMA:
+    def __init__(self, model, decay=0.9999):
+        self.ema_model = copy.deepcopy(model).eval()
+        self.decay = decay
+        self.ema_model.requires_grad_(False)
+
+    def update(self, model):
+        with torch.no_grad():
+            msd = model.state_dict()
+            for k, ema_v in self.ema_model.state_dict().items():
+                model_v = msd[k].detach()
+                if model_v.dtype.is_floating_point:
+                    ema_v.copy_(ema_v * self.decay + (1. - self.decay) * model_v)
+                else:
+                    ema_v.copy_(model_v)
+
 
 class ModelEnsemble(nn.ModuleList):
     def forward(self, x: Tensor) -> tuple[Tensor, ...]:

@@ -22,7 +22,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import Dataset, TensorDataset
 
 from config import *
-from model import mk_model
+from model import mk_model, ModelEMA
 from utils import seed_everything
 from preprocessing import get_meta_data
 from dataset import sgkf_cmi_dataset, split_dataset, move_cmi_dataset, copy_subset
@@ -243,6 +243,7 @@ class FocalLoss(nn.Module):
 def train_model_on_single_epoch(
         meta_data:dict,
         model:nn.Module,
+        ema: ModelEMA,
         train_loader:DL,
         criterion:callable,
         orient_criterion:callable,
@@ -254,6 +255,7 @@ def train_model_on_single_epoch(
     "Train model on a single epoch"
     train_metrics = {}
     model = model.train()
+    ema.ema_model = ema.ema_model.train()
     train_metrics["train_loss"] = 0.0
     total = 0
     tof_and_thm_idx = np.concatenate((meta_data["tof_idx"], meta_data["thm_idx"]))
@@ -279,6 +281,7 @@ def train_model_on_single_epoch(
         )
 
         optimizer.zero_grad()
+        ema.update(model)
         outputs, orient_output, bin_demos_output, reg_demos_output = model(batch_x)
         bce = nn.BCEWithLogitsLoss()
         loss = criterion(outputs, batch_y) + orient_criterion(orient_output, batch_orientation_y) * training_kw["orient_loss_weight"] 
@@ -301,12 +304,12 @@ def train_model_on_single_epoch(
 
 def evaluate_model(
         meta_data:dict,
-        model:nn.Module,
+        ema:nn.Module,
         validation_loader:DL,
         criterion:callable,
         device:torch.device
     ) -> dict:
-    model = model.eval()
+    ema = ema.eval()
     eval_metrics = {}
     eval_metrics["val_loss"] = 0.0
     total = 0
@@ -320,7 +323,7 @@ def evaluate_model(
             y_true = y_true.to(device)
             batch_x[:VALIDATION_BATCH_SIZE // 2, tof_and_thm_idx] = 0.0
 
-            y_pred, *_ = model(batch_x)
+            y_pred, *_ = ema(batch_x)
             loss = criterion(y_pred, y_true)
             eval_metrics["val_loss"] += loss.item() * batch_x.size(0)
             total += batch_x.size(0)
@@ -421,10 +424,11 @@ def get_per_sequence_meta_data(model:nn.Module, train_dataset:Dataset, val_datas
 
 def train_model_on_all_epochs(
         model:nn.Module,
+        ema:ModelEMA,
         train_dataset:Dataset,
         validation_dataset:Dataset,
-        criterion:callable,
-        orient_criterion:callable,
+        criterion:nn.Module,
+        orient_criterion:nn.Module,
         optimizer:torch.optim.Optimizer,
         scheduler:_LRScheduler,
         fold:int,
@@ -438,7 +442,6 @@ def train_model_on_all_epochs(
     meta_data = get_meta_data()
     train_loader = DL(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, drop_last=True)
     validation_loader = DL(validation_dataset, VALIDATION_BATCH_SIZE, shuffle=False, drop_last=False)
-
     metrics:list[dict] = []
     # Early stopping
     best_metric = -np.inf
@@ -447,22 +450,22 @@ def train_model_on_all_epochs(
     epoch = 0
     for _ in range(TRAINING_EPOCHS):
         epoch += 1
-        train_metrics = train_model_on_single_epoch(meta_data, model, train_loader, criterion, orient_criterion, optimizer, scheduler, training_kw, device)
+        train_metrics = train_model_on_single_epoch(meta_data, model, ema, train_loader, criterion, orient_criterion, optimizer, scheduler, training_kw, device)
         validation_metrics = evaluate_model(meta_data, model, validation_loader, criterion, device)
         metrics.append({"fold": fold, "epoch": epoch} | train_metrics | validation_metrics)
         if validation_metrics["final_metric"] > best_metric:
             best_metric = validation_metrics["final_metric"]
             epochs_no_improve = 0
-            best_model_state = model.state_dict()
+            best_ema_state = ema.ema_model.state_dict()
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= PATIENCE:
-                model.load_state_dict(best_model_state)
+                ema.ema_model.load_state_dict(best_ema_state)
                 break
     print("fold", fold, "stopped at", epoch, "score:", validation_metrics['final_metric'])
 
     os.makedirs("models", exist_ok=True)
-    torch.save(best_model_state, f"models/model_fold_{fold}.pth")
+    torch.save(best_ema_state, f"models/model_fold_{fold}.pth")
     epoch_wise_metrics = DF.from_records(metrics).set_index(["fold", "epoch"])
     seq_meta_data = pd.read_parquet("preprocessed_dataset/sequences_meta_data.parquet")
     sample_wise_meta_data = (
@@ -498,6 +501,10 @@ def train_on_single_fold(
     train_reg_demos_y = train_dataset.tensors[4]
     device = torch.device(f"cuda:{gpu_id}")
     model = mk_model(train_x, train_reg_demos_y, device, model_kw)
+    # Dirty hack because I am using lay layers
+    first_batch_x = next(iter(DL(train_dataset, TRAIN_BATCH_SIZE)))[0]
+    model.eval()(first_batch_x)
+    ema = ModelEMA(model, training_kw["model_ema_decay"])
     optimizer = torch.optim.AdamW(
         model.parameters(),
         WARMUP_LR_INIT,
@@ -508,6 +515,7 @@ def train_on_single_fold(
     scheduler = mk_scheduler(optimizer, steps_per_epoch, lr_scheduler_kw)
     epoch_metrics, seq_metrics = train_model_on_all_epochs(
         model,
+        ema,
         train_dataset,
         validation_dataset,
         main_criterion,
