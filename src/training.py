@@ -104,16 +104,14 @@ def mk_scheduler(optimizer:Optimizer, steps_per_epoch:int, lr_scheduler_kw:dict)
 def mixup_data(
     *tensors: Sequence[Tensor],
     alpha: float = 0.2,
-    ratio: float = 1.0,  # ratio of samples to apply mixup
-    batch_size: int = TRAIN_BATCH_SIZE,
+    ratio: float = 1.0,
 ) -> list[Tensor]:
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1.0
 
-    if batch_size is None:
-        batch_size = tensors[0].size(0)
+    batch_size = tensors[0].size(0)
 
     device = tensors[0].device
     # permutation for mixing pairs
@@ -157,14 +155,15 @@ def train_model_on_single_epoch(
         batch_x[:TRAIN_BATCH_SIZE // 2, tof_and_thm_idx] = 0.0
         batch_y = batch_y.to(device)
         batch_x = batch_x.float()
-        
+
         batch_x, batch_y, batch_orientation_y,bin_demos_y, reg_demos_y = mixup_data(
             batch_x,
             batch_y,
             batch_orientation_y,
             bin_demos_y,
             reg_demos_y,
-            alpha=training_kw["mixup_alpha"]
+            alpha=training_kw["mixup_alpha"],
+            ratio=training_kw["mixup_ratio"],
         )
 
         optimizer.zero_grad()
