@@ -122,7 +122,7 @@ SCALING = 0.2
 MIXUP = 0.3
 LABEL_SMOOTHING = 0.1
 # Training loop
-N_FOLDS = 20
+N_FOLDS = 24
 TRAIN_BATCH_SIZE = 256
 VALIDATION_BATCH_SIZE = 4 * TRAIN_BATCH_SIZE
 PATIENCE = 8
@@ -146,7 +146,15 @@ FOLDS_VAL_SCORE_ORDER = {
 KAGGLE_USERNAME = "mauroabidalcarrer"
 MODEL_NAME = "cmi-model"
 MODEL_VARIATION = "single_model_architecture"
-DFLT_MODEL_HP_KW = {"group_thm_branch": True}
+DFLT_MODEL_HP_KW = {
+    "group_thm_branch": True,
+    "rnn_gaussian_noise": 0.1,
+    "imu_dropout_ratio": 0.2,
+    "thm_dropout_ratio": 0.2,
+    "tof_dropout_ratio": 0.2,
+    "head_dropout_ratio": 0,
+    "mlp_width": 256,
+}
 DFLT_LR_SCHEDULER_HP_KW={
     'warmup_epochs': 17,
     'cycle_mult': 1.3,
@@ -169,6 +177,9 @@ DFLT_TRAINING_HP_KW={
     "shoulder_to_elbow_ratio_loss_weight": 0.0,
     "height_cm_loss_weight": 0.0,
     "age_loss_weight": 0,
+    "mixup_alpha": 0.2,
+    "mixup_ratio": 1,
+    "focal_gamma": 1,
 }
 # gating model
 GATING_INPUT_FEATURES = [
