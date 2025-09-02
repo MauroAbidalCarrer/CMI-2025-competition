@@ -107,9 +107,9 @@ def objective(
     model_kw = {
         "rnn_gaussian_noise": trial.suggest_float("rnn_gaussian_noise", 0, 0.3, step=0.05),
         "head_dropout_ratio": trial.suggest_float("head_dropout_ratio", 0, 0.2, step=0.05),
-        "imu_dropout_ratio": trial.suggest_float("imu_dropout_ratio", 0, 0.25, step=0.05),
-        "thm_dropout_ratio": trial.suggest_float("thm_dropout_ratio", 0, 0.25, step=0.05),
-        "tof_dropout_ratio": trial.suggest_float("tof_dropout_ratio", 0, 0.25, step=0.05),
+        "imu_dropout_ratio": trial.suggest_float("imu_dropout_ratio", 0.1, 0.25, step=0.05),
+        "thm_dropout_ratio": trial.suggest_float("thm_dropout_ratio", 0.1, 0.25, step=0.05),
+        "tof_dropout_ratio": trial.suggest_float("tof_dropout_ratio", 0.1, 0.25, step=0.05),
         "model_ema_decay": trial.suggest_float("model_ema_decay", 0, 0.9, step=0.05),
     }
 
