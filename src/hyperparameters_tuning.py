@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional
 from functools import partial
 
@@ -82,22 +83,35 @@ def objective(
             DFLT_TRAINING_HP_KW,
             offset=0.2,
             step=0.1,
-        )
+        ),
+        "mixup_alpha": trial.suggest_float("mixup_alpha", 0, 0.4, step=0.05), 
+        "mixup_ratio": trial.suggest_float("mixup_ratio", 0.2, 1, step=0.1), 
+        "focal_gamma": trial.suggest_float("focal_gamma", 1, 3.5, step=0.25), 
     }
     lr_scheduler_kw = {
         'warmup_epochs': trial.suggest_int("warmup_epochs", 14, 18),
         "cycle_mult": trial.suggest_float("cycle_mult", 0.8, 1.6, step=0.1),
         "init_cycle_epochs": trial.suggest_int("init_cycle_epochs", 2, 10),
-        "max_lr": suggest_offseted_hp(
-            trial.suggest_float,
+        "max_lr": trial.suggest_float(
             "max_lr",
-            DFLT_LR_SCHEDULER_HP_KW,
-            0.001,
-            step=0.0001
-        ),
-        #trial.suggest_float("lr_cycle_factor", 0.25, 0.6, step=0.05),
+            DFLT_LR_SCHEDULER_HP_KW["max_lr"] * 0.9,
+            DFLT_LR_SCHEDULER_HP_KW["max_lr"] * 2,)
+        # "max_lr": suggest_offseted_hp(
+        #     trial.suggest_float,
+        #     "max_lr",
+        #     DFLT_LR_SCHEDULER_HP_KW,
+        #     0.001,
+        #     step=0.0001
+        # ),
     }
-    model_kw = {"group_thm_branch": trial.suggest_categorical("group_thm_branch", [False, True])}
+    model_kw = {
+        "rnn_gaussian_noise": trial.suggest_float("rnn_gaussian_noise", 0.000001, 0.3, log=True),
+        "head_dropout_ratio": trial.suggest_float("head_dropout_ratio", 0, 0.2, step=0.05),
+        "imu_dropout_ratio": trial.suggest_float("imu_dropout_ratio", 0.1, 0.25, step=0.05),
+        "thm_dropout_ratio": trial.suggest_float("thm_dropout_ratio", 0.1, 0.25, step=0.05),
+        "tof_dropout_ratio": trial.suggest_float("tof_dropout_ratio", 0.1, 0.25, step=0.05),
+        "model_ema_decay": trial.suggest_float("model_ema_decay", 0, 0.5, step=0.05),
+    }
 
     train_on_all_folds(
         "train",
@@ -108,13 +122,22 @@ def objective(
             'beta_0': trial.suggest_float("beta_0", 0.8101978952748745, 0.8201978952748745, step=0.001),
             'beta_1': trial.suggest_float("beta_1", 0.9855729096966865, 0.9955729096966865, step=0.001),
         },
-        model_kw=model_kw,
+        model_kw=DFLT_MODEL_HP_KW | model_kw,
     )
-    ensemble = mk_model_ensemble("models", val_device, model_kw)
+    ensemble = mk_model_ensemble("models", val_device, DFLT_MODEL_HP_KW | model_kw)
     val_metrics = evaluate_model(preprocessed_meta_data, ensemble, val_loader, torch.nn.CrossEntropyLoss(), val_device)
     return val_metrics["final_metric"]
 
 if __name__ == "__main__":
+    warnings.filterwarnings(
+        "ignore",
+        message=(
+            r"The distribution is specified by .* and step=0.1, "
+            r"but the range is not divisible by `step`.*"
+        ),
+        category=UserWarning,
+        module="optuna.distributions"
+    )
     study = optuna.create_study(direction="maximize", pruner=FoldPruner(warmup_steps=0, tolerance=0.002))
     splits = split_dataset()
     val_device = torch.device("cuda")

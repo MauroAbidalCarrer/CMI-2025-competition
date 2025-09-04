@@ -1,3 +1,4 @@
+import copy
 from os.path import join
 from typing import Optional
 from functools import partial
@@ -78,27 +79,36 @@ class AlexNet(nn.Sequential):
         return super().__init__(*list(starmap(mk_conv_block, pairwise(channels))))
 
 class MLPhead(nn.Sequential):
-    def __init__(self, width:int, n_classes:int):
+    def __init__(self, width:int, n_classes:int, dropout_ratio:float=0):
         super().__init__(
                 nn.LazyLinear(width, bias=False),
                 nn.BatchNorm1d(width),
                 nn.ReLU(),
+                nn.Dropout(dropout_ratio),
                 nn.Linear(width, width // 2, bias=False),
                 nn.BatchNorm1d(width // 2),
                 nn.ReLU(),
                 nn.Linear(width // 2, n_classes),
         )
 
+class GaussianNoise(nn.Module):
+    """Add Gaussian noise to input tensor"""
+    def __init__(self, stddev):
+        super().__init__()
+        self.stddev = stddev
+
+    def forward(self, x):
+        if self.training:
+            noise = torch.randn_like(x) * self.stddev
+            return x + noise
+        return x
+
 class CMIHARModule(nn.Module):
     def __init__(
             self,
-            mlp_width:int,
+            model_kw: dict,
             dataset_x:Optional[Tensor]=None,
             reg_demos_dataset_y:Optional[Tensor]=None,
-            tof_dropout_ratio:float=0,
-            thm_dropout_ratio:float=0,
-            imu_dropout_ratio:float=0,
-            group_thm_branch=True,
         ):
         super().__init__()
         get_meta_data
@@ -114,18 +124,19 @@ class CMIHARModule(nn.Module):
             self.register_buffer("x_std", torch.empty(x_stats_size))
         self.init_std_mean(reg_demos_dataset_y, 0, (1, len(REGRES_DEMOS_TARGETS)), "reg_demos_y")
         self.imu_branch = nn.Sequential(
-            ResidualBlock(len(self.meta_data["imu_idx"]), 219, imu_dropout_ratio),
-            ResidualBlock(219, 500, imu_dropout_ratio),
+            ResidualBlock(len(self.meta_data["imu_idx"]), 219, model_kw["imu_dropout_ratio"]),
+            ResidualBlock(219, 500, model_kw["imu_dropout_ratio"]),
         )
-        self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 100, 500], tof_dropout_ratio, groups=N_TOF_SENSORS)
-        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 100, 500], thm_dropout_ratio, groups=N_THM_SENSORS if group_thm_branch else 1)
-        self.rnn = nn.GRU(500 * 3, mlp_width // 2, bidirectional=True)
-        self.attention = AdditiveAttentionLayer(mlp_width)
-        self.bfrb_targets_head = MLPhead(mlp_width, len(BFRB_GESTURES))
-        self.non_bfrb_targets_head = MLPhead(mlp_width, len(NON_BFRB_GESTURES))
-        self.aux_orientation_head = MLPhead(mlp_width, self.meta_data["n_orient_classes"])
-        self.binary_demographics_head = MLPhead(mlp_width, len(BINARY_DEMOS_TARGETS))
-        self.regres_demographics_head = MLPhead(mlp_width, len(REGRES_DEMOS_TARGETS))
+        self.tof_branch = AlexNet([len(self.meta_data["tof_idx"]), 100, 500], model_kw["tof_dropout_ratio"], groups=N_TOF_SENSORS)
+        self.thm_branch = AlexNet([len(self.meta_data["thm_idx"]), 100, 500], model_kw["thm_dropout_ratio"], groups=N_THM_SENSORS)
+        self.rnn = nn.GRU(500 * 3, model_kw["mlp_width"] // 2, bidirectional=True)
+        self.rnn_noise = GaussianNoise(model_kw["rnn_gaussian_noise"])
+        self.attention = AdditiveAttentionLayer(model_kw["mlp_width"])
+        self.bfrb_targets_head = MLPhead(model_kw["mlp_width"], len(BFRB_GESTURES), model_kw["head_dropout_ratio"])
+        self.non_bfrb_targets_head = MLPhead(model_kw["mlp_width"], len(NON_BFRB_GESTURES), model_kw["head_dropout_ratio"])
+        self.aux_orientation_head = MLPhead(model_kw["mlp_width"], self.meta_data["n_orient_classes"], model_kw["head_dropout_ratio"])
+        self.binary_demographics_head = MLPhead(model_kw["mlp_width"], len(BINARY_DEMOS_TARGETS), model_kw["head_dropout_ratio"])
+        self.regres_demographics_head = MLPhead(model_kw["mlp_width"], len(REGRES_DEMOS_TARGETS), model_kw["head_dropout_ratio"])
 
     def compute_x_std_and_mean(self, dataset_x: Tensor):
         x_mean = dataset_x.mean(dim=(0, 2), keepdim=True)
@@ -156,8 +167,8 @@ class CMIHARModule(nn.Module):
     def forward(self, x:Tensor) -> Tensor:
         assert self.x_mean is not None and self.x_std is not None, f"Nor x_mean nor x_std should be None.\nx_std: {self.x_std}\nx_mean: {self.x_mean}"
         x = torch.concatenate((
-            x, 
-            nn.functional.pad(x[..., 1:] - x[..., :-1], (0, 1))
+                x, 
+                nn.functional.pad(x[..., 1:] - x[..., :-1], (0, 1))
             ),
             dim=CHANNELS_DIMENSION,
         )
@@ -172,6 +183,7 @@ class CMIHARModule(nn.Module):
         )
         lstm_output, _  = self.rnn(concatenated_activation_maps.swapaxes(1, 2))
         lstm_output = lstm_output.swapaxes(1, 2) # redundant
+        lstm_output = self.rnn_noise(lstm_output)
         attended = self.attention(lstm_output)
         return (
             torch.concat(
@@ -190,20 +202,33 @@ def mk_model(
         dataset_x:Optional[Tensor]=None,
         reg_demos_dataset_y:Optional[Tensor]=None,
         device:Optional[torch.device]=None,
-        group_thm_branch=True,
+        model_kw: Optional[dict]=DFLT_MODEL_HP_KW,
     ) -> nn.Module:
     model = CMIHARModule(
-        mlp_width=256,
         dataset_x=dataset_x,
         reg_demos_dataset_y=reg_demos_dataset_y,
-        imu_dropout_ratio=0.2,
-        tof_dropout_ratio=0.2,
-        thm_dropout_ratio=0.2,
-        group_thm_branch=group_thm_branch,
+        model_kw=model_kw,
     )
     if device is not None:
         model = model.to(device)
     return model
+
+class ModelEMA:
+    def __init__(self, model, decay=0.9999):
+        self.ema_model = copy.deepcopy(model).eval()
+        self.decay = decay
+        self.ema_model.requires_grad_(False)
+
+    def update(self, model):
+        with torch.no_grad():
+            msd = model.state_dict()
+            for k, ema_v in self.ema_model.state_dict().items():
+                model_v = msd[k].detach()
+                if model_v.dtype.is_floating_point:
+                    ema_v.copy_(ema_v * self.decay + (1. - self.decay) * model_v)
+                else:
+                    ema_v.copy_(model_v)
+
 
 class ModelEnsemble(nn.ModuleList):
     def forward(self, x: Tensor) -> tuple[Tensor, ...]:
@@ -215,7 +240,7 @@ class ModelEnsemble(nn.ModuleList):
 def mk_model_ensemble(parent_dir: str, device: torch.device, model_kw=DFLT_MODEL_HP_KW) -> ModelEnsemble:
     models = []
     for fold_idx in range(N_FOLDS):
-        model = mk_model(**model_kw).to(device)
+        model = mk_model(model_kw=model_kw).to(device)
         checkpoint = torch.load(
             join(
                 parent_dir,

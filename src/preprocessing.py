@@ -77,6 +77,9 @@ def add_cross_axis_energy(df: DF, acc_cols_preffix: str) -> DF:
         .groupby("sequence_id", as_index=False, observed=False)
         .apply(compute_seq_cross_axis_energy, acc_cols_preffix, include_groups=False)
     )
+    seq_cross_axis_energy[seq_cross_axis_energy.select_dtypes(include="number").columns] = (
+        seq_cross_axis_energy.select_dtypes(include="number").fillna(0)
+    )
     return df.merge(seq_cross_axis_energy, how="left", on="sequence_id")
 
 def standardize_tof_cols_names(df: DF) -> DF:
@@ -263,7 +266,7 @@ def preprocess_competition_dataset() -> DF:
         .pipe(agg_tof_cols_per_sensor)
         .pipe(add_cross_axis_energy, "acc_")
         .pipe(add_cross_axis_energy, "linear_acc_")
-        # .pipe(add_cross_axis_energy, "euler_")
+        .pipe(add_cross_axis_energy, "euler_")
     )
 
 def preprocess_demographics(demos:DF) -> DF:
