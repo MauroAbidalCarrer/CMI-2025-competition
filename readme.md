@@ -1,5 +1,8 @@
 # Child Mind Institute 2025 Kaggle Competition
 
+### Score
+I ranked [**146th out of 2600**]() participants with an **0.83 F1 score** as a **solo competitor**.  
+
 ### Problem
 Here is a snippet of the competition's overview:  
 > Body-focused repetitive behaviors (BFRBs), such as hair pulling, skin picking, and nail biting, are self-directed habits involving repetitive actions that, when frequent or intense, can cause physical harm and psychosocial challenges.  
