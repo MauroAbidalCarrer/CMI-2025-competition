@@ -1,4 +1,4 @@
-# Child Mind Institute 2025 Kaggle Competition
+# [Child Mind Institute 2025 Kaggle Competition](https://www.kaggle.com/competitions/cmi-detect-behavior-with-sensor-data/overview)
 
 ### Score
 I ranked [**146th out of 2600**]() participants with an **0.83 F1 score** as a **solo competitor**.  
