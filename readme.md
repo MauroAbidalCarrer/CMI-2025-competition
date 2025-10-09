@@ -29,8 +29,11 @@ These auxiliary tasks are:
 - the height  
 - and other features that you can find in the [data description](https://www.kaggle.com/competitions/cmi-detect-behavior-with-sensor-data/data) of the competition.  
 
-The auxiliary tasks helped the training process better leverage the dataset.  
-This allowed me to reach a similar (slightly lower) score with a single architecture compared to the best public-scoring model architecture.  
+Incorporating these auxiliary tasks improved generalization and training stability,  
+enabling the model to achieve performance comparable (slightly lower) to top public submissions using a single unified architecture.
 
 #### Ensemble
-My submission is an ensemble of 20 (one for each fold) models.
+My submission is an ensemble of 20 (one for each fold) models.  
+The model ensemble logits is the average of the 20 models' logits.  
+I then average these logits with the ensemble of a public solution.  
+Interstingly enough, my best submission did not use the best performing public notebook.  
